@@ -243,9 +243,11 @@
 
   let dashboardInicializado = false;
   function initAppDashboard() {
+    const curUser = window.DataStore.getSesionActiva();
+    aplicarPermisosUsuarioSesion(curUser);
+
     if (dashboardInicializado) {
-      actualizarInfoUsuarioSesion(window.DataStore.getSesionActiva());
-      switchView(state.currentView);
+      switchView(state.currentView || 'ctacte');
       return;
     }
     dashboardInicializado = true;
@@ -258,10 +260,7 @@
       state.selectedClienteId = deudor.id;
     }
 
-    actualizarSelectorVendedoresTopbar();
-    actualizarBadgesNav();
-    actualizarInfoUsuarioSesion(window.DataStore.getSesionActiva());
-    switchView(state.currentView);
+    switchView(state.currentView || 'ctacte');
 
     // Soporte para apertura directa vía URL (ej: ?modal=venta, ?modal=cobranza, ?view=ventas)
     try {
@@ -304,8 +303,35 @@
     const select = document.getElementById('selectGlobalVendedor');
     if (!select) return;
 
-    const vendedores = window.DataStore.getVendedores();
-    const todosClientes = window.DataStore.getClientes();
+    const actor = window.DataStore.getSesionActiva();
+    const socioRestringido = window.DataStore.getSocioRestringido ? window.DataStore.getSocioRestringido() : null;
+
+    if (socioRestringido) {
+      state.activeVendedorId = socioRestringido;
+      const vAct = window.DataStore.getVendedor(socioRestringido);
+      const nombreSocio = vAct ? vAct.nombre : socioRestringido;
+      const cantClientes = window.DataStore.getClientes({ vendedorId: socioRestringido }).length;
+
+      select.innerHTML = `<option value="${socioRestringido}" selected>👤 ${escapeHtml(nombreSocio)} (${cantClientes} clientes)</option>`;
+      select.disabled = true;
+      select.title = `Acceso restringido: Cartera exclusiva de ${nombreSocio}`;
+      select.style.cursor = 'default';
+      select.style.backgroundColor = '#f1f5f9';
+      select.style.color = '#334155';
+
+      const badge = document.getElementById('sidebarSocioBadge');
+      if (badge) badge.textContent = nombreSocio;
+      return;
+    }
+
+    select.disabled = false;
+    select.style.cursor = 'pointer';
+    select.style.backgroundColor = '';
+    select.style.color = '';
+    select.title = 'Filtrar clientes y cuentas por socio/vendedor';
+
+    const vendedores = window.DataStore.getAllVendedores ? window.DataStore.getAllVendedores() : window.DataStore.getVendedores();
+    const todosClientes = window.DataStore.getClientes({ vendedorId: 'todos' });
 
     let html = `<option value="todos" ${state.activeVendedorId === 'todos' ? 'selected' : ''}>🌟 Todos los Socios (${todosClientes.length} clientes)</option>`;
 
@@ -314,24 +340,19 @@
       html += `<option value="${v.id}" ${state.activeVendedorId === v.id ? 'selected' : ''}>👤 ${v.nombre} (${cant} clientes)</option>`;
     });
 
-    html += `<option value="__GESTIONAR__">⚙️ + Administrar Socios...</option>`;
+    if (actor && actor.rol === 'admin') {
+      html += `<option value="__GESTIONAR__">⚙️ + Administrar Socios...</option>`;
+    }
     select.innerHTML = html;
 
-    // Actualizar avatar y badge de sidebar
+    // Actualizar únicamente el badge de la card informativa
     const badge = document.getElementById('sidebarSocioBadge');
-    const avatar = document.getElementById('sidebarUserAvatar');
-    const name = document.getElementById('sidebarUserName');
-
-    if (state.activeVendedorId === 'todos') {
-      if (badge) badge.textContent = 'Consolidado';
-      if (avatar) avatar.textContent = 'ALL';
-      if (name) name.textContent = 'Todos los Socios';
-    } else {
-      const vAct = window.DataStore.getVendedor(state.activeVendedorId);
-      if (vAct) {
-        if (badge) badge.textContent = vAct.nombre;
-        if (avatar) avatar.textContent = vAct.nombre.slice(0, 2).toUpperCase();
-        if (name) name.textContent = vAct.nombre;
+    if (badge) {
+      if (state.activeVendedorId === 'todos') {
+        badge.textContent = 'Consolidado';
+      } else {
+        const vAct = window.DataStore.getVendedor(state.activeVendedorId);
+        badge.textContent = vAct ? vAct.nombre : 'Socio';
       }
     }
   }
@@ -340,6 +361,14 @@
     if (vendedorId === '__GESTIONAR__') {
       actualizarSelectorVendedoresTopbar();
       abrirModalGestionSocios();
+      return;
+    }
+
+    const socioRestringido = window.DataStore.getSocioRestringido ? window.DataStore.getSocioRestringido() : null;
+    if (socioRestringido && vendedorId !== socioRestringido) {
+      showToast('No tienes permisos de Consolidado para ver otros socios.', 'warning');
+      state.activeVendedorId = socioRestringido;
+      actualizarSelectorVendedoresTopbar();
       return;
     }
 
@@ -1544,7 +1573,9 @@
                     </td>
                     <td>
                       <span style="font-size: 0.72rem; color: var(--text-secondary); font-weight: 600;">
-                        ${u.socioAsignado === 'todos' ? '🌟 Consolidado' : (window.DataStore.getVendedor(u.socioAsignado)?.nombre || u.socioAsignado)}
+                        ${(u.puedeConsolidar || u.socioAsignado === 'todos') 
+                          ? `<span class="badge" style="background:#fef3c7; color:#92400e; font-size:0.65rem; border:1px solid #fde68a;">🌟 Consolidado</span> ${u.socioAsignado !== 'todos' ? `(${escapeHtml(window.DataStore.getVendedor(u.socioAsignado)?.nombre || u.socioAsignado)})` : ''}` 
+                          : `👤 ${escapeHtml(window.DataStore.getVendedor(u.socioAsignado)?.nombre || u.socioAsignado)}`}
                       </span>
                     </td>
                     <td>
@@ -1621,7 +1652,7 @@
       title.textContent = user ? `Editar Usuario: ${user.nombre}` : 'Nuevo Usuario en Whitelist';
     }
 
-    const vendedores = window.DataStore.getVendedores();
+    const vendedores = window.DataStore.getAllVendedores ? window.DataStore.getAllVendedores() : window.DataStore.getVendedores();
     const isSuperAdmin = user && user.email.toLowerCase() === 'nicolasescudero5@gmail.com';
     const actorIsSuperAdmin = curActor.email.toLowerCase() === 'nicolasescudero5@gmail.com';
 
@@ -1658,13 +1689,28 @@
 
           <div class="form-group" style="flex: 1;">
             <label class="form-label">Socio Asignado</label>
-            <select id="usrSocioAsignado" class="form-control">
+            <select id="usrSocioAsignado" class="form-control" onchange="App.onUsuarioSocioAsignadoChange(this.value)">
               <option value="todos" ${!user || user.socioAsignado === 'todos' ? 'selected' : ''}>🌟 Consolidado (Todos)</option>
               ${vendedores.map(v => `
                 <option value="${v.id}" ${user && user.socioAsignado === v.id ? 'selected' : ''}>👤 ${v.nombre}</option>
               `).join('')}
             </select>
           </div>
+        </div>
+
+        <!-- Opción Consolidado para ver todos los socios -->
+        <div class="form-group" style="margin-bottom: 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px;">
+          <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; margin: 0;">
+            <input type="checkbox" id="usrPuedeConsolidar" style="margin-top: 3px; accent-color: var(--primary);" 
+              ${(!user || user.puedeConsolidar || user.socioAsignado === 'todos') ? 'checked' : ''} 
+              ${(!user || user.socioAsignado === 'todos') ? 'disabled' : ''}>
+            <div>
+              <strong style="font-size: 0.82rem; color: #0f172a; display: block;">Opción Consolidado (Ver todos los socios)</strong>
+              <span style="font-size: 0.72rem; color: #64748b; display: block; margin-top: 2px;">
+                Permite al usuario ver las cuentas corrientes, ventas y estadísticas de <strong>todos</strong> los socios. Si no está tildada, el usuario <strong>únicamente</strong> podrá acceder a la cartera del socio asignado.
+              </span>
+            </div>
+          </label>
         </div>
 
         <div class="form-group" style="margin-bottom: 14px;">
@@ -1680,6 +1726,17 @@
     abrirModal('modalUsuario');
   }
 
+  function onUsuarioSocioAsignadoChange(val) {
+    const chk = document.getElementById('usrPuedeConsolidar');
+    if (!chk) return;
+    if (val === 'todos') {
+      chk.checked = true;
+      chk.disabled = true;
+    } else {
+      chk.disabled = false;
+    }
+  }
+
   async function guardarUsuarioForm() {
     const curActor = window.DataStore.getSesionActiva();
     if (!curActor || curActor.rol !== 'admin') {
@@ -1693,6 +1750,8 @@
     const password = document.getElementById('usrPassword')?.value?.trim();
     const rol = document.getElementById('usrRol')?.value || 'operador';
     const socioAsignado = document.getElementById('usrSocioAsignado')?.value || 'todos';
+    const chkConsolidar = document.getElementById('usrPuedeConsolidar');
+    const puedeConsolidar = chkConsolidar ? chkConsolidar.checked : (socioAsignado === 'todos');
     const estado = document.getElementById('usrEstado')?.value || 'activo';
 
     if (!nombre || !email) {
@@ -1711,6 +1770,7 @@
         email,
         rol,
         socioAsignado,
+        puedeConsolidar,
         estado
       };
       if (password) {
@@ -1853,7 +1913,8 @@
 
     if (errBox) errBox.style.display = 'none';
     cerrarModal('modalLogin');
-    actualizarInfoUsuarioSesion(res.usuario);
+    aplicarPermisosUsuarioSesion(res.usuario);
+    switchView(state.currentView || 'ctacte');
     showToast(`¡Bienvenido/a ${res.usuario.nombre}! Acceso autorizado.`);
   }
 
@@ -1862,7 +1923,8 @@
     if (u) {
       window.DataStore.setUsuarioActual(u);
       cerrarModal('modalLogin');
-      actualizarInfoUsuarioSesion(u);
+      aplicarPermisosUsuarioSesion(u);
+      switchView(state.currentView || 'ctacte');
       showToast(`Cambiado a usuario: ${u.nombre}`);
     }
   }
@@ -1870,42 +1932,31 @@
   function actualizarInfoUsuarioSesion(u) {
     if (!u) return;
 
-    const topEmail = document.getElementById('topbarUserEmail');
-    if (topEmail) topEmail.textContent = u.email;
-
-    const topTag = document.getElementById('topbarUserTag');
-    if (topTag) {
-      if (u.rol === 'admin') {
-        topTag.textContent = 'Admin';
-        topTag.style.background = '#6366f1';
-        topTag.style.color = '#ffffff';
-      } else if (u.rol === 'socio') {
-        topTag.textContent = 'Socio';
-        topTag.style.background = '#2563eb';
-        topTag.style.color = '#ffffff';
-      } else {
-        topTag.textContent = 'Operador';
-        topTag.style.background = '#059669';
-        topTag.style.color = '#ffffff';
-      }
-    }
-
     const sName = document.getElementById('sidebarUserName');
-    if (sName) sName.textContent = u.nombre;
+    if (sName) sName.textContent = u.nombre || u.email;
 
     const sRole = document.getElementById('sidebarUserRole');
-    if (sRole) {
+    if (sRole) sRole.textContent = u.email;
+
+    const sTag = document.getElementById('sidebarUserTag');
+    if (sTag) {
       if (u.rol === 'admin') {
-        sRole.textContent = u.email.toLowerCase() === 'nicolasescudero5@gmail.com' ? 'Super Administrador' : 'Administrador';
+        sTag.textContent = 'Admin';
+        sTag.style.background = '#6366f1';
+        sTag.style.color = '#ffffff';
       } else if (u.rol === 'socio') {
-        sRole.textContent = 'Socio Comercial';
+        sTag.textContent = 'Socio';
+        sTag.style.background = '#2563eb';
+        sTag.style.color = '#ffffff';
       } else {
-        sRole.textContent = 'Operador Comercial';
+        sTag.textContent = 'Operador';
+        sTag.style.background = '#059669';
+        sTag.style.color = '#ffffff';
       }
     }
 
     const sAvatar = document.getElementById('sidebarUserAvatar');
-    if (sAvatar) sAvatar.textContent = (u.nombre || 'U').slice(0, 2).toUpperCase();
+    if (sAvatar) sAvatar.textContent = (u.nombre || u.email || 'U').slice(0, 2).toUpperCase();
 
     // Control estricto de visibilidad del menú "Seguridad & Admin"
     const navSectionAdmin = document.getElementById('navSectionAdmin');
@@ -1922,6 +1973,35 @@
     // Si el usuario logueado NO es admin pero estaba en la vista de administración, expulsar a ctacte
     if (!esAdmin && state.currentView === 'admin') {
       switchView('ctacte');
+    }
+  }
+
+  function aplicarPermisosUsuarioSesion(u) {
+    if (!u) return;
+    actualizarInfoUsuarioSesion(u);
+
+    const socioRestringido = window.DataStore.getSocioRestringido ? window.DataStore.getSocioRestringido() : null;
+    if (socioRestringido) {
+      state.activeVendedorId = socioRestringido;
+    } else {
+      if (state.activeVendedorId !== 'todos' && !window.DataStore.getVendedor(state.activeVendedorId)) {
+        state.activeVendedorId = 'todos';
+      }
+    }
+
+    actualizarSelectorVendedoresTopbar();
+    actualizarBadgesNav();
+
+    // Sincronizar cliente seleccionado según la cartera accesible
+    const clientes = window.DataStore.getClientes({ vendedorId: state.activeVendedorId });
+    if (clientes.length > 0) {
+      const exists = clientes.some(c => c.id === state.selectedClienteId);
+      if (!exists) {
+        const deudor = clientes.find(c => c.saldoActual > 0) || clientes[0];
+        state.selectedClienteId = deudor.id;
+      }
+    } else {
+      state.selectedClienteId = '';
     }
   }
 
@@ -2877,11 +2957,12 @@
     const body = document.getElementById('modalClienteBody');
     if (!body) return;
 
+    const socioRestringido = window.DataStore.getSocioRestringido ? window.DataStore.getSocioRestringido() : null;
     const vendedores = window.DataStore.getVendedores();
     let cli = {
       id: '',
       razonSocial: '',
-      vendedorId: state.activeVendedorId !== 'todos' ? state.activeVendedorId : (vendedores[0] ? vendedores[0].id : ''),
+      vendedorId: socioRestringido || (state.activeVendedorId !== 'todos' ? state.activeVendedorId : (vendedores[0] ? vendedores[0].id : '')),
       telefono: '+54 9 11 ',
       contactoNombre: '',
       direccion: '',
@@ -2903,7 +2984,7 @@
 
           <div class="form-group" style="flex: 1;">
             <label class="form-label">Socio / Vendedor <span class="required">*</span></label>
-            <select id="cliVendedorId" class="form-control" required>
+            <select id="cliVendedorId" class="form-control" ${socioRestringido ? 'disabled style="background:#f1f5f9; cursor:not-allowed;"' : ''} required>
               ${vendedores.map(v => `
                 <option value="${v.id}" ${v.id === cli.vendedorId ? 'selected' : ''}>${v.nombre}</option>
               `).join('')}
@@ -2945,7 +3026,8 @@
 
   function guardarClienteForm() {
     const razonSocial = document.getElementById('cliRazonSocial')?.value.trim();
-    const vendedorId = document.getElementById('cliVendedorId')?.value;
+    const socioRestringido = window.DataStore.getSocioRestringido ? window.DataStore.getSocioRestringido() : null;
+    const vendedorId = socioRestringido || document.getElementById('cliVendedorId')?.value;
     if (!razonSocial || !vendedorId) {
       showToast('Por favor ingrese el nombre y asigne un socio.', 'danger');
       return;
@@ -3262,6 +3344,7 @@
 
     // Admin & Whitelist & Autenticación
     abrirModalUsuario,
+    onUsuarioSocioAsignadoChange,
     guardarUsuarioForm,
     toggleBajaUsuario,
     eliminarUsuario,

@@ -10,6 +10,7 @@
     "test": "node scratch/test_features.js",
     "test:dom": "node scratch/test_dom.js",
     "test:security": "node scratch/test_security.js",
+    "test:scoping": "node scratch/test_scoping.js",
     "build": "mkdir -p public dist && cp -r index.html css js public/ && cp -r index.html css js dist/"
   }
 }

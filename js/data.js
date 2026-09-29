@@ -81,6 +81,7 @@
           nombre: row.nombre,
           rol: row.rol || 'operador',
           socioAsignado: row.socio_asignado || 'todos',
+          puedeConsolidar: row.puede_consolidar !== undefined ? !!row.puede_consolidar : (row.socio_asignado === 'todos' || row.rol === 'admin'),
           estado: row.estado || 'activo',
           ultimoAcceso: row.ultimo_acceso ? row.ultimo_acceso.replace('T', ' ').slice(0, 16) : null
         };
@@ -133,10 +134,30 @@
       return true;
     },
 
+    // Control de Restricción de Socio según Permisos de Sesión
+    getSocioRestringido() {
+      const actor = this.getSesionActiva();
+      if (!actor) return null;
+      if (actor.puedeConsolidar || actor.socioAsignado === 'todos' || actor.rol === 'admin') {
+        return null; // Tiene permiso para ver Consolidado
+      }
+      return actor.socioAsignado; // Restringido exclusivamente a su socio asignado
+    },
+
     // =============================================================
     // 1. GESTIÓN DE SOCIOS / VENDEDORES
     // =============================================================
     getVendedores(soloActivos = true) {
+      if (!this.data.vendedores) this.data.vendedores = [];
+      const list = this.data.vendedores.filter(v => !soloActivos || v.activo);
+      const socioRestringido = this.getSocioRestringido();
+      if (socioRestringido) {
+        return list.filter(v => v.id === socioRestringido);
+      }
+      return list;
+    },
+
+    getAllVendedores(soloActivos = true) {
       if (!this.data.vendedores) this.data.vendedores = [];
       return this.data.vendedores.filter(v => !soloActivos || v.activo);
     },
@@ -188,10 +209,12 @@
     // =============================================================
     getClientes(filters = {}) {
       let list = this.data.clientes || [];
+      const socioRestringido = this.getSocioRestringido();
+      const effectiveVendedorId = socioRestringido || filters.vendedorId;
 
       // Filtro por Vendedor / Socio
-      if (filters.vendedorId && filters.vendedorId !== 'todos') {
-        list = list.filter(c => c.vendedorId === filters.vendedorId);
+      if (effectiveVendedorId && effectiveVendedorId !== 'todos') {
+        list = list.filter(c => c.vendedorId === effectiveVendedorId);
       }
 
       // Filtro por Estado Comercial
@@ -230,6 +253,10 @@
     getCliente(id) {
       const cli = (this.data.clientes || []).find(c => c.id === id);
       if (!cli) return null;
+      const socioRestringido = this.getSocioRestringido();
+      if (socioRestringido && cli.vendedorId !== socioRestringido) {
+        return null;
+      }
       const resumen = this.getClienteResumen(id);
       const vendedor = this.getVendedor(cli.vendedorId) || { nombre: 'Sin Asignar', color: '#64748b' };
       return {
@@ -286,10 +313,12 @@
     // =============================================================
     getVentas(filters = {}) {
       let list = this.data.ventas || [];
+      const socioRestringido = this.getSocioRestringido();
+      const effectiveVendedorId = socioRestringido || filters.vendedorId;
 
       // Filtro por Vendedor
-      if (filters.vendedorId && filters.vendedorId !== 'todos') {
-        list = list.filter(v => v.vendedorId === filters.vendedorId);
+      if (effectiveVendedorId && effectiveVendedorId !== 'todos') {
+        list = list.filter(v => v.vendedorId === effectiveVendedorId);
       }
 
       // Filtro por Cliente
@@ -336,6 +365,8 @@
     getVenta(id) {
       const v = (this.data.ventas || []).find(item => item.id === id);
       if (!v) return null;
+      const socioRestringido = this.getSocioRestringido();
+      if (socioRestringido && v.vendedorId !== socioRestringido) return null;
       const cli = (this.data.clientes || []).find(c => c.id === v.clienteId);
       const vend = this.getVendedor(v.vendedorId || (cli ? cli.vendedorId : ''));
       return {
@@ -408,9 +439,11 @@
     // =============================================================
     getCobranzas(filters = {}) {
       let list = this.data.cobranzas || [];
+      const socioRestringido = this.getSocioRestringido();
+      const effectiveVendedorId = socioRestringido || filters.vendedorId;
 
-      if (filters.vendedorId && filters.vendedorId !== 'todos') {
-        list = list.filter(c => c.vendedorId === filters.vendedorId);
+      if (effectiveVendedorId && effectiveVendedorId !== 'todos') {
+        list = list.filter(c => c.vendedorId === effectiveVendedorId);
       }
 
       if (filters.clienteId) {
@@ -443,6 +476,8 @@
     getCobranza(id) {
       const cob = (this.data.cobranzas || []).find(c => c.id === id);
       if (!cob) return null;
+      const socioRestringido = this.getSocioRestringido();
+      if (socioRestringido && cob.vendedorId !== socioRestringido) return null;
       const cli = (this.data.clientes || []).find(c => c.id === cob.clienteId);
       const vend = this.getVendedor(cob.vendedorId || (cli ? cli.vendedorId : ''));
       return {
@@ -906,8 +941,15 @@ Por favor confirmar comprobante de transferencia a:
     },
 
     // Herramientas adicionales conservadas
-    getPlanesPago() {
-      return this.data.planesPago || [];
+    getPlanesPago(filters = {}) {
+      let list = this.data.planesPago || [];
+      const socioRestringido = this.getSocioRestringido();
+      const effectiveVendedorId = socioRestringido || (filters ? filters.vendedorId : null);
+      if (effectiveVendedorId && effectiveVendedorId !== 'todos') {
+        const clientesIds = new Set((this.data.clientes || []).filter(c => c.vendedorId === effectiveVendedorId).map(c => c.id));
+        list = list.filter(p => clientesIds.has(p.clienteId));
+      }
+      return list;
     },
     savePlanPago(plan) {
       if (!this.data.planesPago) this.data.planesPago = [];
@@ -930,6 +972,7 @@ Por favor confirmar comprobante de transferencia a:
             nombre: 'Nicolás Escudero (Super Admin)',
             rol: 'admin',
             socioAsignado: 'todos',
+            puedeConsolidar: true,
             estado: 'activo',
             creadoEl: '2026-09-28',
             ultimoAcceso: new Date().toISOString().replace('T', ' ').slice(0, 16)
@@ -941,6 +984,7 @@ Por favor confirmar comprobante de transferencia a:
             nombre: 'Franco (Socio)',
             rol: 'socio',
             socioAsignado: 'VEND-FRANCO',
+            puedeConsolidar: false,
             estado: 'activo',
             creadoEl: '2026-09-28',
             ultimoAcceso: null
@@ -952,6 +996,7 @@ Por favor confirmar comprobante de transferencia a:
             nombre: 'Lucas (Socio)',
             rol: 'socio',
             socioAsignado: 'VEND-LUCAS',
+            puedeConsolidar: false,
             estado: 'activo',
             creadoEl: '2026-09-28',
             ultimoAcceso: null
@@ -964,6 +1009,7 @@ Por favor confirmar comprobante de transferencia a:
           if (!adminUsr.password) adminUsr.password = 'admin123';
           adminUsr.estado = 'activo';
           adminUsr.rol = 'admin';
+          adminUsr.puedeConsolidar = true;
         } else {
           this.data.usuarios.unshift({
             id: 'USR-ADMIN',
@@ -972,6 +1018,7 @@ Por favor confirmar comprobante de transferencia a:
             nombre: 'Nicolás Escudero (Super Admin)',
             rol: 'admin',
             socioAsignado: 'todos',
+            puedeConsolidar: true,
             estado: 'activo',
             creadoEl: '2026-09-28',
             ultimoAcceso: new Date().toISOString().replace('T', ' ').slice(0, 16)
@@ -1018,6 +1065,10 @@ Por favor confirmar comprobante de transferencia a:
 
       if (!userData.email) throw new Error('El correo electrónico es obligatorio.');
       const emailNorm = userData.email.toLowerCase().trim();
+      const socioAsignado = userData.socioAsignado || 'todos';
+      const puedeConsolidar = userData.puedeConsolidar !== undefined 
+        ? !!userData.puedeConsolidar 
+        : (socioAsignado === 'todos' || userData.rol === 'admin');
 
       // Si es edición
       if (userData.id) {
@@ -1032,7 +1083,8 @@ Por favor confirmar comprobante de transferencia a:
             nombre: userData.nombre || this.data.usuarios[idx].nombre,
             password: userData.password || this.data.usuarios[idx].password,
             rol: userData.rol || this.data.usuarios[idx].rol,
-            socioAsignado: userData.socioAsignado || this.data.usuarios[idx].socioAsignado,
+            socioAsignado: socioAsignado,
+            puedeConsolidar: puedeConsolidar,
             estado: userData.estado || this.data.usuarios[idx].estado
           };
           this.save();
@@ -1053,7 +1105,8 @@ Por favor confirmar comprobante de transferencia a:
         nombre: userData.nombre || emailNorm.split('@')[0],
         password: userData.password || '123456',
         rol: userData.rol || 'operador',
-        socioAsignado: userData.socioAsignado || 'todos',
+        socioAsignado: socioAsignado,
+        puedeConsolidar: puedeConsolidar,
         estado: userData.estado || 'activo',
         creadoEl: new Date().toISOString().split('T')[0],
         ultimoAcceso: null
@@ -1155,6 +1208,7 @@ Por favor confirmar comprobante de transferencia a:
         nombre: u.nombre,
         rol: u.rol,
         socioAsignado: u.socioAsignado,
+        puedeConsolidar: u.puedeConsolidar !== undefined ? !!u.puedeConsolidar : (u.socioAsignado === 'todos' || u.rol === 'admin'),
         estado: u.estado,
         ultimoAcceso: u.ultimoAcceso
       };
@@ -1183,7 +1237,8 @@ Por favor confirmar comprobante de transferencia a:
                   email: u.email,
                   nombre: u.nombre,
                   rol: u.rol,
-                  socioAsignado: u.socioAsignado,
+                  socioAsignado: u.socioAsignado || 'todos',
+                  puedeConsolidar: u.puedeConsolidar !== undefined ? !!u.puedeConsolidar : (u.socioAsignado === 'todos' || u.rol === 'admin'),
                   estado: u.estado,
                   ultimoAcceso: u.ultimoAcceso
                 };
@@ -1223,7 +1278,8 @@ Por favor confirmar comprobante de transferencia a:
               email: user.email,
               nombre: user.nombre,
               rol: user.rol,
-              socioAsignado: user.socioAsignado
+              socioAsignado: user.socioAsignado || 'todos',
+              puedeConsolidar: user.puedeConsolidar !== undefined ? !!user.puedeConsolidar : (user.socioAsignado === 'todos' || user.rol === 'admin')
             });
             localStorage.setItem('finanzaflow_current_user', payload);
             localStorage.setItem('finanzaflow_auth_user', payload);

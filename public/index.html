@@ -182,8 +182,11 @@
         <div class="user-snippet" id="sidebarUserSnippet" onclick="App.onUserPillClick()" style="cursor: pointer; flex: 1; min-width: 0;" title="Perfil de usuario activo">
           <div class="user-avatar" id="sidebarUserAvatar">NE</div>
           <div class="user-info">
-            <div class="user-name" id="sidebarUserName">Nicolás Escudero</div>
-            <div class="user-role" id="sidebarUserRole">Super Administrador</div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span class="user-name" id="sidebarUserName">Nicolás Escudero</span>
+              <span class="badge" id="sidebarUserTag" style="font-size: 0.62rem; padding: 1px 5px; border-radius: 4px; font-weight: 700; background: #6366f1; color: #fff;">Admin</span>
+            </div>
+            <div class="user-role" id="sidebarUserRole" style="font-size: 0.68rem; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">nicolasescudero5@gmail.com</div>
           </div>
         </div>
         <button class="btn-logout" onclick="App.cerrarSesion()" title="Cerrar Sesión Segura">
@@ -215,9 +218,9 @@
           </div>
         </div>
 
-        <div class="topbar-center">
+        <div class="topbar-center" style="margin-left: auto;">
           <!-- Selector Global de Socio / Vendedor -->
-          <div class="vendedor-filter-box" title="Filtrar clientes y cuentas por socio/vendedor">
+          <div class="vendedor-filter-box" id="vendedorFilterBox" title="Filtrar clientes y cuentas por socio/vendedor">
             <span style="font-size: 0.78rem; font-weight: 800; color: #475569; display: flex; align-items: center; gap: 5px;">
               <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
               Socio:
@@ -232,35 +235,6 @@
             <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
             <input type="text" id="topbarSearchInput" placeholder="Buscar cliente, corte..." onkeyup="App.handleTopbarSearch(this.value)">
           </div>
-        </div>
-
-        <div class="topbar-actions">
-          <div id="topbarLiveBadge" style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 9999px; background: rgba(16, 185, 129, 0.12); color: #047857; font-size: 0.72rem; font-weight: 700; border: 1px solid rgba(16, 185, 129, 0.25);" title="Conectado en tiempo real a Supabase (PostgreSQL 17, sa-east-1)">
-            <span style="width: 7px; height: 7px; border-radius: 50%; background: #10b981; box-shadow: 0 0 6px #10b981;"></span>
-            <span>Online · Supabase</span>
-          </div>
-
-          <button class="btn btn-primary btn-sm" onclick="App.abrirModalVenta()">
-            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-            Venta
-          </button>
-
-          <button class="btn btn-dark btn-sm" onclick="App.abrirModalCobranza()">
-            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-            Pago
-          </button>
-
-          <div class="topbar-user-pill" id="topbarUserPill" onclick="App.onUserPillClick()" title="Perfil de usuario activo">
-            <span class="user-pill-tag" id="topbarUserTag">Admin</span>
-            <span class="user-pill-email" id="topbarUserEmail">nicolasescudero5@gmail.com</span>
-          </div>
-
-          <button class="btn btn-outline-danger btn-sm" onclick="App.cerrarSesion()" title="Cerrar Sesión Segura" style="padding: 5px 9px; font-size: 0.76rem; border-radius: 8px; display: inline-flex; align-items: center; gap: 4px; border: 1px solid #fecaca; background: #fff1f2; color: #be123c;">
-            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-            Salir
-          </button>
         </div>
       </header>
 

@@ -158,6 +158,7 @@
         nombre: row.nombre,
         rol: row.rol || 'operador',
         socioAsignado: row.socio_asignado || 'todos',
+        puedeConsolidar: row.puede_consolidar !== undefined ? !!row.puede_consolidar : (row.socio_asignado === 'todos' || row.rol === 'admin'),
         estado: row.estado || 'activo',
         ultimoAcceso: row.ultimo_acceso ? row.ultimo_acceso.replace('T', ' ').slice(0, 16) : null
       };
@@ -177,6 +178,7 @@
         nombre: u.nombre,
         rol: u.rol || 'operador',
         socio_asignado: u.socioAsignado || 'todos',
+        puede_consolidar: u.puedeConsolidar !== undefined ? !!u.puedeConsolidar : (u.socioAsignado === 'todos' || u.rol === 'admin'),
         estado: u.estado || 'activo',
         ultimo_acceso: isoDate
       };
