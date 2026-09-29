@@ -292,7 +292,7 @@
           this.fetchAllRows('clientes'),
           this.fetchAllRows('ventas'),
           this.fetchAllRows('cobranzas'),
-          this.fetchAllRows('usuarios_whitelist')
+          this.fetchAllRows('usuarios_publicos')
         ]);
 
         const dataset = {
@@ -327,6 +327,46 @@
         return { ok: false, error: 'Por favor ingresa tu correo y contraseña.' };
       }
 
+      // 1. Intentar autenticación atómica y segura server-side en PostgreSQL vía RPC (SECURITY DEFINER)
+      if (sb) {
+        try {
+          const { data, error } = await sb.rpc('autenticar_usuario', {
+            p_email: cleanEmail,
+            p_password: password
+          });
+          if (!error && data) {
+            if (data.ok && data.usuario) {
+              return { ok: true, usuario: data.usuario };
+            }
+            return { ok: false, error: data.error || 'Credenciales inválidas.' };
+          }
+        } catch (err) {
+          console.warn('⚠️ [Supabase] RPC autenticar_usuario no disponible, usando fallback:', err);
+        }
+      }
+
+      // 2. Fallback REST para RPC autenticar_usuario
+      if (typeof fetch !== 'undefined') {
+        try {
+          const res = await this.restFetch('rpc/autenticar_usuario', {
+            method: 'POST',
+            body: JSON.stringify({ p_email: cleanEmail, p_password: password })
+          });
+          if (res && res.ok) {
+            const data = await res.json();
+            if (data && data.ok && data.usuario) {
+              return { ok: true, usuario: data.usuario };
+            }
+            if (data && data.error) {
+              return { ok: false, error: data.error };
+            }
+          }
+        } catch (err) {
+          console.warn('⚠️ [Supabase] Fallback REST RPC no disponible:', err);
+        }
+      }
+
+      // 3. Fallback directo a usuarios_whitelist con validación estricta (sin bypasses)
       let userData = null;
       if (sb) {
         try {
@@ -360,13 +400,8 @@
           return { ok: false, error: 'Este usuario ha sido dado de baja por el Administrador.' };
         }
 
-        let passOk = false;
-        if (u.email === 'nicolasescudero5@gmail.com') {
-          passOk = (password === u.password || password === 'admin123' || password === 'admin');
-        } else {
-          passOk = (u.password === password);
-        }
-
+        // Comprobación estricta de contraseña (sin bypass ni fallback)
+        const passOk = (u.password === password);
         if (!passOk) {
           return { ok: false, error: 'Contraseña incorrecta. Verifica tus datos de acceso.' };
         }
@@ -383,12 +418,14 @@
         }
         u.ultimoAcceso = nowIso.replace('T', ' ').slice(0, 16);
 
+        // Omitir contraseña antes de retornar usuario al cliente
+        delete u.password;
         return { ok: true, usuario: u };
       }
 
       // Fallback a DataStore local si Supabase no responde
-      if (window.DataStore && window.DataStore.autenticarUsuarioLocal) {
-        return window.DataStore.autenticarUsuarioLocal(cleanEmail, password);
+      if (window.DataStore && window.DataStore.autenticarUsuario) {
+        return window.DataStore.autenticarUsuario(cleanEmail, password);
       }
       return { ok: false, error: 'El correo no se encuentra registrado en el sistema.' };
     },

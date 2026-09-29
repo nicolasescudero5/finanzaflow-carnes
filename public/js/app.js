@@ -232,16 +232,6 @@
       });
     }
 
-    // Soporte para autologin de pruebas vía URL (?autologin=admin)
-    try {
-      if (typeof window !== 'undefined' && window.location && window.location.search) {
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('autologin') === 'admin') {
-          window.DataStore.autenticarUsuario('nicolasescudero5@gmail.com', 'admin123');
-        }
-      }
-    } catch (e) {}
-
     const autenticado = verificarSesionYRenderizar();
     if (!autenticado) {
       // Si no hay sesión válida, se mantiene en la pantalla de Login Gate

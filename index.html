@@ -22,7 +22,7 @@
   <!-- ======================================================= -->
   <div id="loginGateScreen" class="login-gate-wrapper">
     <div class="login-gate-card">
-      <div class="login-gate-brand">
+      <div class="login-gate-brand" style="margin-bottom: 24px;">
         <div class="login-gate-logo">
           <!-- Logo Outline de Corte de Carne Vacuno / Beef Steak -->
           <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
@@ -35,16 +35,6 @@
           <div class="login-gate-title">Carnes</div>
           <div class="login-gate-subtitle">Control de Cuentas Corrientes & Gestión Comercial</div>
         </div>
-      </div>
-
-      <div class="login-gate-badge" style="margin-bottom: 6px;">
-        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-        <span>Acceso Privado Requerido</span>
-      </div>
-
-      <div style="display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 0.72rem; color: #059669; font-weight: 700; margin-bottom: 16px;">
-        <span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981; box-shadow: 0 0 8px #10b981; display: inline-block;"></span>
-        <span>Base de Datos Supabase 100% Online</span>
       </div>
 
       <!-- Alerta de Error -->
@@ -477,7 +467,7 @@
   <div id="toastContainer" class="toast-container"></div>
 
   <!-- Scripts del Sistema (Con dataset pre-cargado y persistencia en Supabase) -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2" integrity="sha384-WgXwGL6fUsYJWNaKJgVbrJKGRQwc1vieh2oy4kw9nXqpNDz3tdSsqEYUgeHD/NuF" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script src="js/supabase_client.js?v=4.0"></script>
   <script src="js/initial_data.js"></script>
   <script src="js/data.js?v=4.0"></script>

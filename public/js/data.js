@@ -1139,13 +1139,8 @@ Por favor confirmar comprobante de transferencia a:
         return { ok: false, error: 'Este usuario ha sido dado de baja por el Administrador.' };
       }
 
-      // Validación flexible para el Super Administrador (acepta admin123 o admin)
-      let passOk = false;
-      if (u.email.toLowerCase() === 'nicolasescudero5@gmail.com') {
-        passOk = (password === u.password || password === 'admin123' || password === 'admin');
-      } else {
-        passOk = (u.password === password);
-      }
+      // Comprobación estricta de contraseña (sin bypasses ni fallbacks predecibles)
+      const passOk = (u.password === password);
 
       if (!passOk) {
         return { ok: false, error: 'Contraseña incorrecta. Verifica tus datos de acceso.' };
@@ -1153,13 +1148,23 @@ Por favor confirmar comprobante de transferencia a:
 
       u.ultimoAcceso = new Date().toISOString().replace('T', ' ').slice(0, 16);
       this.save();
-      this.setUsuarioActual(u);
+
+      const safeUser = {
+        id: u.id,
+        email: u.email,
+        nombre: u.nombre,
+        rol: u.rol,
+        socioAsignado: u.socioAsignado,
+        estado: u.estado,
+        ultimoAcceso: u.ultimoAcceso
+      };
+      this.setUsuarioActual(safeUser);
 
       if (typeof window !== 'undefined' && window.SupabaseService) {
         window.SupabaseService.actualizarUltimoAcceso(u.id);
       }
 
-      return { ok: true, usuario: u };
+      return { ok: true, usuario: safeUser };
     },
 
     getSesionActiva() {
@@ -1169,17 +1174,29 @@ Por favor confirmar comprobante de transferencia a:
           if (authStr) {
             const authObj = JSON.parse(authStr);
             if (authObj && authObj.email) {
+              this.initUsuariosWhitelist();
               const u = this.getUsuarioByEmail(authObj.email);
-              if (u) {
-                if (u.estado !== 'inactivo') return u;
-                return null;
+              if (u && u.estado === 'activo') {
+                // Siempre retornar el rol y datos fidedignos de la whitelist (previene elevación de privilegios en localStorage)
+                return {
+                  id: u.id,
+                  email: u.email,
+                  nombre: u.nombre,
+                  rol: u.rol,
+                  socioAsignado: u.socioAsignado,
+                  estado: u.estado,
+                  ultimoAcceso: u.ultimoAcceso
+                };
               }
-              // Si aún no terminó de descargar Supabase, conservar la sesión activa
-              return authObj;
+              // Usuario inexistente o inactivo en la base autorizada: invalidar sesión manipulada
+              this.cerrarSesion();
+              return null;
             }
           }
         }
-      } catch (e) {}
+      } catch (e) {
+        this.cerrarSesion();
+      }
       return null;
     },
 
