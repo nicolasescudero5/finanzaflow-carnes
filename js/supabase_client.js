@@ -163,6 +163,13 @@
       };
     },
     toDbUsuario(u) {
+      let isoDate = null;
+      if (u.ultimoAcceso && typeof u.ultimoAcceso === 'string' && u.ultimoAcceso !== 'Sin ingresos') {
+        const d = new Date(u.ultimoAcceso.replace(' ', 'T'));
+        if (!isNaN(d.getTime())) {
+          isoDate = d.toISOString();
+        }
+      }
       return {
         id: u.id,
         email: (u.email || '').toLowerCase().trim(),
@@ -171,7 +178,7 @@
         rol: u.rol || 'operador',
         socio_asignado: u.socioAsignado || 'todos',
         estado: u.estado || 'activo',
-        ultimo_acceso: u.ultimoAcceso ? new Date(u.ultimoAcceso).toISOString() : null
+        ultimo_acceso: isoDate
       };
     }
   };
@@ -561,18 +568,26 @@
         const row = Mappers.toDbUsuario(usuario);
         if (sb) {
           const { error } = await sb.from('usuarios_whitelist').upsert(row, { onConflict: 'id' });
-          if (error) console.error('Error al guardar usuario en Supabase:', error);
-          else console.log('✅ Usuario impactado en Supabase con éxito:', row.email);
+          if (error) {
+            console.error('Error al guardar usuario en Supabase:', error);
+            throw new Error(error.message || 'Error en Supabase al guardar usuario');
+          }
+          console.log('✅ Usuario impactado en Supabase con éxito:', row.email);
         } else if (typeof fetch !== 'undefined') {
           const res = await this.restFetch('usuarios_whitelist', {
             method: 'POST',
             headers: { Prefer: 'resolution=merge-duplicates' },
             body: JSON.stringify(row)
           });
-          if (res && res.ok) console.log('✅ Usuario impactado en Supabase vía REST:', row.email);
+          if (!res || !res.ok) {
+            const errText = res ? await res.text() : 'Sin respuesta';
+            throw new Error('Error REST Supabase: ' + errText);
+          }
+          console.log('✅ Usuario impactado en Supabase vía REST:', row.email);
         }
       } catch (e) {
         console.error('Error en guardarUsuario Supabase:', e);
+        throw e;
       }
     },
 

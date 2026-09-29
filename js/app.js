@@ -1645,9 +1645,9 @@
         </div>
 
         <div class="form-group" style="margin-bottom: 12px;">
-          <label class="form-label">Correo Electrónico (Login) <span class="required">*</span></label>
-          <input type="email" id="usrEmail" class="form-control" value="${user ? escapeHtml(user.email) : ''}" placeholder="usuario@gmail.com" ${isSuperAdmin ? 'readonly' : ''} required>
-          ${isSuperAdmin ? '<span style="font-size: 0.72rem; color: var(--primary); display:block; margin-top:3px;">El correo del Super Admin principal no puede alterarse.</span>' : ''}
+          <label class="form-label">Usuario / Correo Electrónico (Login) <span class="required">*</span></label>
+          <input type="text" id="usrEmail" class="form-control" value="${user ? escapeHtml(user.email) : ''}" placeholder="Ej: franco o usuario@empresa.com" ${isSuperAdmin ? 'readonly' : ''} required autocomplete="off">
+          ${isSuperAdmin ? '<span style="font-size: 0.72rem; color: var(--primary); display:block; margin-top:3px;">El usuario del Super Admin principal no puede alterarse.</span>' : ''}
         </div>
 
         <div class="form-group" style="margin-bottom: 12px;">
@@ -1690,7 +1690,7 @@
     abrirModal('modalUsuario');
   }
 
-  function guardarUsuarioForm() {
+  async function guardarUsuarioForm() {
     const curActor = window.DataStore.getSesionActiva();
     if (!curActor || curActor.rol !== 'admin') {
       showToast('Acceso denegado: No tienes permisos para gestionar usuarios.', 'error');
@@ -1706,7 +1706,7 @@
     const estado = document.getElementById('usrEstado')?.value || 'activo';
 
     if (!nombre || !email) {
-      showToast('Por favor complete nombre y correo electrónico.', 'error');
+      showToast('Por favor complete nombre y correo electrónico / usuario.', 'error');
       return;
     }
     if (!id && !password) {
@@ -1726,20 +1726,26 @@
       if (password) {
         payload.password = password;
       }
-      window.DataStore.saveUsuario(payload);
+      const savedUser = window.DataStore.saveUsuario(payload);
+
+      // Esperar persistencia en Supabase
+      if (window.SupabaseService && window.SupabaseService.guardarUsuario) {
+        await window.SupabaseService.guardarUsuario(savedUser);
+      }
+
       cerrarModal('modalUsuario');
-      showToast(`¡Usuario ${nombre} guardado correctamente en la whitelist!`, 'success');
+      showToast(`¡Usuario ${nombre} guardado correctamente e impactado en Supabase!`, 'success');
 
       if (state.currentView === 'admin') {
         const container = document.getElementById('viewContent');
         renderAdmin(container);
       }
     } catch (err) {
-      showToast(err.message, 'error');
+      showToast('Error al guardar: ' + err.message, 'error');
     }
   }
 
-  function toggleBajaUsuario(id) {
+  async function toggleBajaUsuario(id) {
     const curActor = window.DataStore.getSesionActiva();
     if (!curActor || curActor.rol !== 'admin') {
       showToast('Acceso denegado: No tienes permisos para suspender usuarios.', 'error');
@@ -1748,6 +1754,9 @@
 
     try {
       const u = window.DataStore.toggleBajaUsuario(id);
+      if (window.SupabaseService && window.SupabaseService.cambiarEstadoUsuario) {
+        await window.SupabaseService.cambiarEstadoUsuario(id, u.estado);
+      }
       showToast(`Usuario ${u.nombre} ahora está ${u.estado === 'activo' ? 'Activo' : 'Dado de Baja'}.`, 'info');
       if (state.currentView === 'admin') {
         const container = document.getElementById('viewContent');
@@ -1758,7 +1767,7 @@
     }
   }
 
-  function eliminarUsuario(id) {
+  async function eliminarUsuario(id) {
     const curActor = window.DataStore.getSesionActiva();
     if (!curActor || curActor.rol !== 'admin') {
       showToast('Acceso denegado: No tienes permisos para eliminar usuarios.', 'error');
@@ -1767,10 +1776,13 @@
 
     const u = window.DataStore.getUsuario(id);
     if (!u) return;
-    if (confirm(`¿Confirma eliminar a ${u.nombre} (${u.email}) de la whitelist?`)) {
+    if (confirm(`¿Confirma eliminar permanentemente a ${u.nombre} (${u.email}) de la whitelist y de Supabase?`)) {
       try {
         window.DataStore.deleteUsuario(id);
-        showToast('Usuario eliminado de la whitelist.', 'success');
+        if (window.SupabaseService && window.SupabaseService.eliminarUsuario) {
+          await window.SupabaseService.eliminarUsuario(id);
+        }
+        showToast(`Usuario ${u.nombre} eliminado permanentemente.`, 'info');
         if (state.currentView === 'admin') {
           const container = document.getElementById('viewContent');
           renderAdmin(container);
