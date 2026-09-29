@@ -9,12 +9,6 @@
     "start": "python3 -m http.server 8190",
     "test": "node scratch/test_features.js",
     "test:dom": "node scratch/test_dom.js",
-    "build": "echo 'FinanzaFlow Carnes ready for production static deploy'"
-  },
-  "dependencies": {
-    "@supabase/supabase-js": "^2.45.0"
-  },
-  "devDependencies": {
-    "vite": "^5.4.0"
+    "build": "mkdir -p public && cp -r index.html css js public/"
   }
 }
