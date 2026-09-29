@@ -429,6 +429,12 @@
       pageSubtitle.textContent = 'Clasificación temporal de saldos por tramos de vencimiento';
       renderAging(container);
     } else if (viewName === 'admin') {
+      const cur = window.DataStore.getSesionActiva();
+      if (!cur || cur.rol !== 'admin') {
+        showToast('Acceso restringido: Solo el Administrador puede gestionar usuarios.', 'error');
+        switchView('ctacte');
+        return;
+      }
       pageTitle.textContent = 'Control de Acceso & Whitelist';
       pageSubtitle.textContent = 'Gestión de usuarios autorizados con usuario y contraseña (Super Admin: nicolasescudero5@gmail.com)';
       renderAdmin(container);
@@ -1584,6 +1590,12 @@
   // MODALES Y MÉTODOS DE SEGURIDAD / WHITELIST
   // =============================================================
   function abrirModalUsuario(usuarioId = null) {
+    const curActor = window.DataStore.getSesionActiva();
+    if (!curActor || curActor.rol !== 'admin') {
+      showToast('Acceso denegado: Solo el Administrador puede gestionar usuarios.', 'error');
+      return;
+    }
+
     const title = document.getElementById('modalUsuarioTitle');
     const body = document.getElementById('modalUsuarioBody');
     if (!body) return;
@@ -1599,6 +1611,7 @@
 
     const vendedores = window.DataStore.getVendedores();
     const isSuperAdmin = user && user.email.toLowerCase() === 'nicolasescudero5@gmail.com';
+    const actorIsSuperAdmin = curActor.email.toLowerCase() === 'nicolasescudero5@gmail.com';
 
     body.innerHTML = `
       <form id="formUsuarioWhitelist" onsubmit="event.preventDefault(); App.guardarUsuarioForm();">
@@ -1606,7 +1619,7 @@
         
         <div class="form-group" style="margin-bottom: 12px;">
           <label class="form-label">Nombre Completo <span class="required">*</span></label>
-          <input type="text" id="usrNombre" class="form-control" value="${user ? escapeHtml(user.nombre) : ''}" placeholder="Ej: Nicolás Escudero" required>
+          <input type="text" id="usrNombre" class="form-control" value="${user ? escapeHtml(user.nombre) : ''}" placeholder="Ej: Marcos Escudero" required>
         </div>
 
         <div class="form-group" style="margin-bottom: 12px;">
@@ -1624,10 +1637,11 @@
           <div class="form-group" style="flex: 1;">
             <label class="form-label">Rol en el Sistema</label>
             <select id="usrRol" class="form-control" ${isSuperAdmin ? 'disabled' : ''}>
-              <option value="admin" ${user && user.rol === 'admin' ? 'selected' : ''}>Administrador (Total)</option>
-              <option value="operador" ${user && user.rol === 'operador' ? 'selected' : ''}>Operador Cuentas Corrientes</option>
+              ${actorIsSuperAdmin ? `<option value="admin" ${user && user.rol === 'admin' ? 'selected' : ''}>Administrador (Total)</option>` : (user && user.rol === 'admin' ? `<option value="admin" selected>Administrador</option>` : '')}
+              <option value="operador" ${(!user || user.rol === 'operador') ? 'selected' : ''}>Operador Cuentas Corrientes</option>
               <option value="socio" ${user && user.rol === 'socio' ? 'selected' : ''}>Socio Comercial / Vendedor</option>
             </select>
+            ${!actorIsSuperAdmin ? '<span style="font-size: 0.7rem; color: var(--text-muted);">Solo el Super Admin puede asignar permisos de Administrador.</span>' : ''}
           </div>
 
           <div class="form-group" style="flex: 1;">
@@ -1655,6 +1669,12 @@
   }
 
   function guardarUsuarioForm() {
+    const curActor = window.DataStore.getSesionActiva();
+    if (!curActor || curActor.rol !== 'admin') {
+      showToast('Acceso denegado: No tienes permisos para gestionar usuarios.', 'error');
+      return;
+    }
+
     const id = document.getElementById('usrId')?.value || null;
     const nombre = document.getElementById('usrNombre')?.value?.trim();
     const email = document.getElementById('usrEmail')?.value?.trim();
@@ -1698,6 +1718,12 @@
   }
 
   function toggleBajaUsuario(id) {
+    const curActor = window.DataStore.getSesionActiva();
+    if (!curActor || curActor.rol !== 'admin') {
+      showToast('Acceso denegado: No tienes permisos para suspender usuarios.', 'error');
+      return;
+    }
+
     try {
       const u = window.DataStore.toggleBajaUsuario(id);
       showToast(`Usuario ${u.nombre} ahora está ${u.estado === 'activo' ? 'Activo' : 'Dado de Baja'}.`, 'info');
@@ -1711,6 +1737,12 @@
   }
 
   function eliminarUsuario(id) {
+    const curActor = window.DataStore.getSesionActiva();
+    if (!curActor || curActor.rol !== 'admin') {
+      showToast('Acceso denegado: No tienes permisos para eliminar usuarios.', 'error');
+      return;
+    }
+
     const u = window.DataStore.getUsuario(id);
     if (!u) return;
     if (confirm(`¿Confirma eliminar a ${u.nombre} (${u.email}) de la whitelist?`)) {
@@ -1812,14 +1844,70 @@
   }
 
   function actualizarInfoUsuarioSesion(u) {
+    if (!u) return;
+
     const topEmail = document.getElementById('topbarUserEmail');
-    if (topEmail && u) topEmail.textContent = u.email;
+    if (topEmail) topEmail.textContent = u.email;
+
+    const topTag = document.getElementById('topbarUserTag');
+    if (topTag) {
+      if (u.rol === 'admin') {
+        topTag.textContent = 'Admin';
+        topTag.style.background = '#6366f1';
+        topTag.style.color = '#ffffff';
+      } else if (u.rol === 'socio') {
+        topTag.textContent = 'Socio';
+        topTag.style.background = '#2563eb';
+        topTag.style.color = '#ffffff';
+      } else {
+        topTag.textContent = 'Operador';
+        topTag.style.background = '#059669';
+        topTag.style.color = '#ffffff';
+      }
+    }
+
     const sName = document.getElementById('sidebarUserName');
-    if (sName && u) sName.textContent = u.nombre;
+    if (sName) sName.textContent = u.nombre;
+
     const sRole = document.getElementById('sidebarUserRole');
-    if (sRole && u) sRole.textContent = u.rol === 'admin' ? 'Super Administrador' : 'Operador';
+    if (sRole) {
+      if (u.rol === 'admin') {
+        sRole.textContent = u.email.toLowerCase() === 'nicolasescudero5@gmail.com' ? 'Super Administrador' : 'Administrador';
+      } else if (u.rol === 'socio') {
+        sRole.textContent = 'Socio Comercial';
+      } else {
+        sRole.textContent = 'Operador Comercial';
+      }
+    }
+
     const sAvatar = document.getElementById('sidebarUserAvatar');
-    if (sAvatar && u) sAvatar.textContent = (u.nombre || 'U').slice(0, 2).toUpperCase();
+    if (sAvatar) sAvatar.textContent = (u.nombre || 'U').slice(0, 2).toUpperCase();
+
+    // Control estricto de visibilidad del menú "Seguridad & Admin"
+    const navSectionAdmin = document.getElementById('navSectionAdmin');
+    const navItemAdmin = document.getElementById('navItemAdmin');
+    const esAdmin = (u.rol === 'admin');
+
+    if (navSectionAdmin) {
+      navSectionAdmin.style.display = esAdmin ? 'block' : 'none';
+    }
+    if (navItemAdmin) {
+      navItemAdmin.style.display = esAdmin ? 'flex' : 'none';
+    }
+
+    // Si el usuario logueado NO es admin pero estaba en la vista de administración, expulsar a ctacte
+    if (!esAdmin && state.currentView === 'admin') {
+      switchView('ctacte');
+    }
+  }
+
+  function onUserPillClick() {
+    const u = window.DataStore.getSesionActiva();
+    if (u && u.rol === 'admin') {
+      switchView('admin');
+    } else if (u) {
+      showToast(`Sesión: ${u.nombre} (${u.rol === 'operador' ? 'Operador Comercial' : 'Socio'})`, 'info');
+    }
   }
 
   // =============================================================
@@ -3162,6 +3250,7 @@
     verificarSesionYRenderizar,
     loginRapidoComo,
     actualizarInfoUsuarioSesion,
+    onUserPillClick,
 
     // Generales
     cerrarModal,

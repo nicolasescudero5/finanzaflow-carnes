@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sistema de Cuentas Corrientes Cárnicas | FinanzaFlow</title>
+  <title>Carnes | Sistema de Cuentas Corrientes</title>
   
   <!-- Fuente Google Plus Jakarta Sans & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -32,7 +32,7 @@
           </svg>
         </div>
         <div>
-          <div class="login-gate-title">FinanzaFlow Cárnicas</div>
+          <div class="login-gate-title">Carnes</div>
           <div class="login-gate-subtitle">Control de Cuentas Corrientes & Gestión Comercial</div>
         </div>
       </div>
@@ -52,7 +52,7 @@
             <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
             </svg>
-            <input type="email" id="gateInputEmail" class="form-control" placeholder="tu-email@frigorifico.com" value="nicolasescudero5@gmail.com" required autocomplete="username">
+            <input type="email" id="gateInputEmail" class="form-control" placeholder="tu-email@frigorifico.com" required autocomplete="username">
           </div>
         </div>
 
@@ -76,19 +76,6 @@
           </svg>
         </button>
       </form>
-
-      <div class="login-gate-footer">
-        <div class="login-credentials-hint">
-          <div class="hint-title">🔑 Acceso Inicial Super Administrador:</div>
-          <div class="hint-body">
-            <strong>Usuario:</strong> <code>nicolasescudero5@gmail.com</code><br>
-            <strong>Clave:</strong> <code>admin123</code>
-          </div>
-        </div>
-        <p class="login-security-notice">
-          🛡️ Sistema protegido con Whitelist de Seguridad. Para autorizar nuevos usuarios o socios, inicia sesión como Administrador y dirígete al menú "Acceso & Whitelist".
-        </p>
-      </div>
     </div>
   </div>
 
@@ -106,7 +93,7 @@
           </svg>
         </div>
         <div>
-          <div class="brand-title">FinanzaFlow</div>
+          <div class="brand-title">Carnes</div>
           <div class="brand-subtitle">Cuentas Corrientes</div>
         </div>
       </div>
@@ -175,9 +162,9 @@
           </svg>
           Antigüedad de Deuda
         </button>
-        <div class="nav-section-title">Seguridad & Admin</div>
+        <div class="nav-section-title" id="navSectionAdmin">Seguridad & Admin</div>
 
-        <button class="nav-item" data-view="admin" onclick="App.switchView('admin')">
+        <button class="nav-item" id="navItemAdmin" data-view="admin" onclick="App.switchView('admin')">
           <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
           </svg>
@@ -197,7 +184,7 @@
       </div>
 
       <div class="sidebar-footer" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-        <div class="user-snippet" onclick="App.switchView('admin')" style="cursor: pointer; flex: 1; min-width: 0;" title="Administrar usuarios y Whitelist">
+        <div class="user-snippet" id="sidebarUserSnippet" onclick="App.onUserPillClick()" style="cursor: pointer; flex: 1; min-width: 0;" title="Perfil de usuario activo">
           <div class="user-avatar" id="sidebarUserAvatar">NE</div>
           <div class="user-info">
             <div class="user-name" id="sidebarUserName">Nicolás Escudero</div>
@@ -263,8 +250,8 @@
             Pago
           </button>
 
-          <div class="topbar-user-pill" onclick="App.switchView('admin')" title="Administrador / Whitelist">
-            <span class="user-pill-tag">Admin</span>
+          <div class="topbar-user-pill" id="topbarUserPill" onclick="App.onUserPillClick()" title="Perfil de usuario activo">
+            <span class="user-pill-tag" id="topbarUserTag">Admin</span>
             <span class="user-pill-email" id="topbarUserEmail">nicolasescudero5@gmail.com</span>
           </div>
 

@@ -1,4 +1,4 @@
-# FinanzaFlow Carnes - Sistema Simplificado de Cuentas Corrientes Frigoríficas
+# Carnes - Sistema Simplificado de Cuentas Corrientes Frigoríficas
 
 Sistema ágil y optimizado para la gestión de cuentas corrientes en la distribución de carne vacuna, despachos de medias reses y cortes, cobranzas e imputación automática FIFO.
 

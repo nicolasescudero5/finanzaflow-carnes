@@ -1,7 +1,7 @@
 {
-  "name": "finanzaflow-carnes",
+  "name": "carnes",
   "version": "1.0.0",
-  "description": "Sistema Simplificado de Cuenta Corriente Cárnica, Pagos FIFO y Gestión Comercial",
+  "description": "Carnes - Sistema Simplificado de Cuenta Corriente Cárnica, Pagos FIFO y Gestión Comercial",
   "author": "Nicolás Escudero",
   "license": "MIT",
   "scripts": {
@@ -9,6 +9,6 @@
     "start": "python3 -m http.server 8190",
     "test": "node scratch/test_features.js",
     "test:dom": "node scratch/test_dom.js",
-    "build": "mkdir -p public && cp -r index.html css js public/"
+    "build": "mkdir -p public dist && cp -r index.html css js public/ && cp -r index.html css js dist/"
   }
 }

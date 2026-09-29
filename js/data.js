@@ -933,6 +933,14 @@ Por favor confirmar comprobante de transferencia a:
 
     saveUsuario(userData) {
       this.initUsuariosWhitelist();
+      const actor = this.getSesionActiva();
+      if (actor && actor.rol !== 'admin') {
+        throw new Error('Permiso denegado: Solo los administradores pueden crear o modificar usuarios.');
+      }
+      if (userData.rol === 'admin' && actor && actor.email.toLowerCase() !== 'nicolasescudero5@gmail.com') {
+        throw new Error('Solo el Super Administrador principal (nicolasescudero5@gmail.com) puede crear o asignar roles de Administrador.');
+      }
+
       if (!userData.email) throw new Error('El correo electrónico es obligatorio.');
       const emailNorm = userData.email.toLowerCase().trim();
 
@@ -980,6 +988,10 @@ Por favor confirmar comprobante de transferencia a:
 
     toggleBajaUsuario(id) {
       this.initUsuariosWhitelist();
+      const actor = this.getSesionActiva();
+      if (actor && actor.rol !== 'admin') {
+        throw new Error('Permiso denegado: Solo los administradores pueden suspender o habilitar usuarios.');
+      }
       const u = this.data.usuarios.find(item => item.id === id);
       if (!u) throw new Error('Usuario no encontrado.');
       if (u.email.toLowerCase() === 'nicolasescudero5@gmail.com') {
@@ -992,6 +1004,10 @@ Por favor confirmar comprobante de transferencia a:
 
     deleteUsuario(id) {
       this.initUsuariosWhitelist();
+      const actor = this.getSesionActiva();
+      if (actor && actor.rol !== 'admin') {
+        throw new Error('Permiso denegado: Solo los administradores pueden eliminar usuarios.');
+      }
       const u = this.data.usuarios.find(item => item.id === id);
       if (!u) throw new Error('Usuario no encontrado.');
       if (u.email.toLowerCase() === 'nicolasescudero5@gmail.com') {
