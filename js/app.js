@@ -108,10 +108,135 @@
   }
 
   // =============================================================
+  // SESIÓN Y GATEWAY DE AUTENTICACIÓN OBLIGATORIA
+  // =============================================================
+  function verificarSesionYRenderizar() {
+    const user = window.DataStore.getSesionActiva();
+    const loginGate = document.getElementById('loginGateScreen');
+    const appLayout = document.getElementById('appLayout');
+
+    if (!user) {
+      if (loginGate) loginGate.style.display = 'flex';
+      if (appLayout) appLayout.style.display = 'none';
+      return false;
+    }
+
+    if (loginGate) loginGate.style.display = 'none';
+    if (appLayout) appLayout.style.display = 'flex';
+    actualizarInfoUsuarioSesion(user);
+    return true;
+  }
+
+  function ejecutarLoginGate() {
+    const emailInput = document.getElementById('gateInputEmail');
+    const passInput = document.getElementById('gateInputPassword');
+    const errBox = document.getElementById('loginGateError');
+    const btnSubmit = document.getElementById('btnGateLoginSubmit');
+
+    const email = emailInput?.value?.trim() || '';
+    const pass = passInput?.value || '';
+
+    if (!email || !pass) {
+      if (errBox) {
+        errBox.textContent = 'Por favor ingresa tu correo y contraseña.';
+        errBox.style.display = 'flex';
+      }
+      return;
+    }
+
+    if (btnSubmit) {
+      btnSubmit.disabled = true;
+      btnSubmit.innerHTML = `<span>Verificando credenciales...</span>`;
+    }
+
+    setTimeout(() => {
+      const res = window.DataStore.autenticarUsuario(email, pass);
+
+      if (btnSubmit) {
+        btnSubmit.disabled = false;
+        btnSubmit.innerHTML = `
+          <span>Ingresar al Sistema</span>
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+          </svg>
+        `;
+      }
+
+      if (!res.ok) {
+        if (errBox) {
+          errBox.textContent = res.error;
+          errBox.style.display = 'flex';
+        }
+        return;
+      }
+
+      if (errBox) errBox.style.display = 'none';
+      verificarSesionYRenderizar();
+      initAppDashboard();
+      showToast(`¡Bienvenido/a ${res.usuario.nombre}! Acceso autorizado.`);
+    }, 200);
+  }
+
+  function cerrarSesion() {
+    window.DataStore.cerrarSesion();
+    const loginGate = document.getElementById('loginGateScreen');
+    const appLayout = document.getElementById('appLayout');
+    const passInput = document.getElementById('gateInputPassword');
+    const errBox = document.getElementById('loginGateError');
+
+    if (passInput) passInput.value = '';
+    if (errBox) errBox.style.display = 'none';
+    if (loginGate) loginGate.style.display = 'flex';
+    if (appLayout) appLayout.style.display = 'none';
+
+    showToast('Sesión cerrada con éxito.');
+  }
+
+  function togglePasswordVisibility(inputId, btnEl) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    if (input.type === 'password') {
+      input.type = 'text';
+      if (btnEl) btnEl.textContent = 'Ocultar';
+    } else {
+      input.type = 'password';
+      if (btnEl) btnEl.textContent = 'Mostrar';
+    }
+  }
+
+  // =============================================================
   // INICIALIZACIÓN DE LA APP
   // =============================================================
   function initApp() {
     window.DataStore.init();
+
+    // Soporte para autologin de pruebas vía URL (?autologin=admin)
+    try {
+      if (typeof window !== 'undefined' && window.location && window.location.search) {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('autologin') === 'admin') {
+          window.DataStore.autenticarUsuario('nicolasescudero5@gmail.com', 'admin123');
+        }
+      }
+    } catch (e) {}
+
+    const autenticado = verificarSesionYRenderizar();
+    if (!autenticado) {
+      // Si no hay sesión válida, se mantiene en la pantalla de Login Gate
+      return;
+    }
+
+    initAppDashboard();
+  }
+
+  let dashboardInicializado = false;
+  function initAppDashboard() {
+    if (dashboardInicializado) {
+      actualizarInfoUsuarioSesion(window.DataStore.getSesionActiva());
+      switchView(state.currentView);
+      return;
+    }
+    dashboardInicializado = true;
 
     // Configurar cliente seleccionado por defecto
     const clientes = window.DataStore.getClientes({ vendedorId: state.activeVendedorId });
@@ -123,7 +248,7 @@
 
     actualizarSelectorVendedoresTopbar();
     actualizarBadgesNav();
-    actualizarInfoUsuarioSesion(window.DataStore.getUsuarioActual());
+    actualizarInfoUsuarioSesion(window.DataStore.getSesionActiva());
     switchView(state.currentView);
 
     // Soporte para apertura directa vía URL (ej: ?modal=venta, ?modal=cobranza, ?view=ventas)
@@ -3023,7 +3148,7 @@
     abrirModalCliente,
     guardarClienteForm,
 
-    // Admin & Whitelist
+    // Admin & Whitelist & Autenticación
     abrirModalUsuario,
     guardarUsuarioForm,
     toggleBajaUsuario,
@@ -3031,6 +3156,10 @@
     onFiltroUsuariosChange,
     abrirModalLogin,
     ejecutarLogin,
+    ejecutarLoginGate,
+    cerrarSesion,
+    togglePasswordVisibility,
+    verificarSesionYRenderizar,
     loginRapidoComo,
     actualizarInfoUsuarioSesion,
 

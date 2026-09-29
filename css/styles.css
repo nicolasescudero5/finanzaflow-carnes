@@ -2547,5 +2547,206 @@ textarea.form-control {
   color: #475569;
 }
 
+/* ============================================================
+   PANTALLA DE LOGIN OBLIGATORIA (GATEWAY)
+   ============================================================ */
+.login-gate-wrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  min-height: 100vh;
+  background: radial-gradient(circle at 15% 15%, #1e293b 0%, #0f172a 50%, #020617 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999999;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.login-gate-card {
+  background: #ffffff;
+  width: 100%;
+  max-width: 440px;
+  border-radius: 20px;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  padding: 36px 32px;
+  animation: gateCardFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+}
+
+@keyframes gateCardFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.login-gate-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.login-gate-logo {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: #0f172a;
+  color: #daf560;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.35);
+  flex-shrink: 0;
+}
+
+.login-gate-title {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.2;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.login-gate-subtitle {
+  font-size: 0.8rem;
+  color: #64748b;
+  font-weight: 500;
+  margin: 3px 0 0 0;
+}
+
+.login-gate-badge {
+  background: #eff6ff;
+  color: #1d4ed8;
+  padding: 5px 12px;
+  border-radius: 9999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 20px;
+  border: 1px solid #bfdbfe;
+}
+
+.login-error-alert {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1.4;
+}
+
+.btn-text-link {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+}
+
+.btn-text-link:hover {
+  text-decoration: underline;
+}
+
+.input-with-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.input-with-icon svg {
+  position: absolute;
+  left: 12px;
+  color: #94a3b8;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.input-with-icon .form-control {
+  padding-left: 38px;
+}
+
+.login-gate-footer {
+  margin-top: 22px;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 16px;
+}
+
+.login-credentials-hint {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  font-size: 0.78rem;
+  color: #334155;
+  line-height: 1.45;
+}
+
+.login-credentials-hint .hint-title {
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.login-credentials-hint code {
+  background: #e2e8f0;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.login-security-notice {
+  font-size: 0.73rem;
+  color: #64748b;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.btn-logout {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid #fecaca;
+  background: #fff1f2;
+  color: #be123c;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn-logout:hover {
+  background: #ffe4e6;
+  border-color: #fda4af;
+  color: #9f1239;
+}
+
+
 
 

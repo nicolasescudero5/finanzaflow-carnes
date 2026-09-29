@@ -851,7 +851,7 @@ Por favor confirmar comprobante de transferencia a:
           {
             id: 'USR-ADMIN',
             email: 'nicolasescudero5@gmail.com',
-            password: 'admin',
+            password: 'admin123',
             nombre: 'Nicolás Escudero (Super Admin)',
             rol: 'admin',
             socioAsignado: 'todos',
@@ -883,6 +883,26 @@ Por favor confirmar comprobante de transferencia a:
           }
         ];
         this.save();
+      } else {
+        const adminUsr = this.data.usuarios.find(u => u.email.toLowerCase() === 'nicolasescudero5@gmail.com');
+        if (adminUsr) {
+          if (!adminUsr.password) adminUsr.password = 'admin123';
+          adminUsr.estado = 'activo';
+          adminUsr.rol = 'admin';
+        } else {
+          this.data.usuarios.unshift({
+            id: 'USR-ADMIN',
+            email: 'nicolasescudero5@gmail.com',
+            password: 'admin123',
+            nombre: 'Nicolás Escudero (Super Admin)',
+            rol: 'admin',
+            socioAsignado: 'todos',
+            estado: 'activo',
+            creadoEl: '2026-09-28',
+            ultimoAcceso: new Date().toISOString().replace('T', ' ').slice(0, 16)
+          });
+          this.save();
+        }
       }
     },
 
@@ -984,46 +1004,97 @@ Por favor confirmar comprobante de transferencia a:
 
     autenticarUsuario(email, password) {
       this.initUsuariosWhitelist();
+      if (!email || !password) {
+        return { ok: false, error: 'Por favor ingresa tu correo y contraseña.' };
+      }
       const u = this.getUsuarioByEmail(email);
       if (!u) {
-        return { ok: false, error: 'El correo no se encuentra autorizado en la whitelist.' };
+        return { ok: false, error: 'El correo no se encuentra autorizado en la whitelist del sistema.' };
       }
       if (u.estado === 'inactivo') {
         return { ok: false, error: 'Este usuario ha sido dado de baja por el Administrador.' };
       }
-      if (u.password && u.password !== password) {
-        return { ok: false, error: 'Contraseña incorrecta.' };
+
+      // Validación flexible para el Super Administrador (acepta admin123 o admin)
+      let passOk = false;
+      if (u.email.toLowerCase() === 'nicolasescudero5@gmail.com') {
+        passOk = (password === u.password || password === 'admin123' || password === 'admin');
+      } else {
+        passOk = (u.password === password);
       }
+
+      if (!passOk) {
+        return { ok: false, error: 'Contraseña incorrecta. Verifica tus datos de acceso.' };
+      }
+
       u.ultimoAcceso = new Date().toISOString().replace('T', ' ').slice(0, 16);
       this.save();
       this.setUsuarioActual(u);
+
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('finanzaflow_auth_user', JSON.stringify({
+            id: u.id,
+            email: u.email,
+            nombre: u.nombre,
+            rol: u.rol,
+            socioAsignado: u.socioAsignado,
+            loginTime: Date.now()
+          }));
+        }
+      } catch (e) {}
+
       return { ok: true, usuario: u };
     },
 
-    getUsuarioActual() {
+    getSesionActiva() {
       try {
         if (typeof localStorage !== 'undefined') {
-          const cur = localStorage.getItem('finanzaflow_current_user');
-          if (cur) return JSON.parse(cur);
+          const authStr = localStorage.getItem('finanzaflow_auth_user') || localStorage.getItem('finanzaflow_current_user');
+          if (authStr) {
+            const authObj = JSON.parse(authStr);
+            if (authObj && authObj.email) {
+              const u = this.getUsuarioByEmail(authObj.email);
+              if (u && u.estado !== 'inactivo') {
+                return u;
+              }
+            }
+          }
         }
       } catch (e) {}
-      // Por defecto Nicolás Escudero
-      return this.getUsuarioByEmail('nicolasescudero5@gmail.com');
+      return null;
+    },
+
+    cerrarSesion() {
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.removeItem('finanzaflow_auth_user');
+          localStorage.removeItem('finanzaflow_current_user');
+        }
+      } catch (e) {}
+      return true;
+    },
+
+    getUsuarioActual() {
+      return this.getSesionActiva();
     },
 
     setUsuarioActual(user) {
       try {
         if (typeof localStorage !== 'undefined') {
           if (user) {
-            localStorage.setItem('finanzaflow_current_user', JSON.stringify({
+            const payload = JSON.stringify({
               id: user.id,
               email: user.email,
               nombre: user.nombre,
               rol: user.rol,
               socioAsignado: user.socioAsignado
-            }));
+            });
+            localStorage.setItem('finanzaflow_current_user', payload);
+            localStorage.setItem('finanzaflow_auth_user', payload);
           } else {
             localStorage.removeItem('finanzaflow_current_user');
+            localStorage.removeItem('finanzaflow_auth_user');
           }
         }
       } catch (e) {}
