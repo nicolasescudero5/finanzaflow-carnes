@@ -36,13 +36,15 @@
             this.initFromPreloaded();
           }
           this.initUsuariosWhitelist();
-          return;
         } catch (e) {
           console.warn('Error al leer datos locales, inicializando dataset base:', e);
+          this.initFromPreloaded();
+          this.initUsuariosWhitelist();
         }
+      } else {
+        this.initFromPreloaded();
+        this.initUsuariosWhitelist();
       }
-      this.initFromPreloaded();
-      this.initUsuariosWhitelist();
       this.syncFromSupabase();
     },
 
@@ -979,7 +981,7 @@ Por favor confirmar comprobante de transferencia a:
           },
           {
             id: 'USR-FRANCO',
-            email: 'franco@finanzaflow.com',
+            email: 'franco',
             password: 'franco2026',
             nombre: 'Franco (Socio)',
             rol: 'socio',
@@ -991,8 +993,8 @@ Por favor confirmar comprobante de transferencia a:
           },
           {
             id: 'USR-LUCAS',
-            email: 'lucas@finanzaflow.com',
-            password: 'lucas2026',
+            email: 'lucas',
+            password: 'prueba1346',
             nombre: 'Lucas (Socio)',
             rol: 'socio',
             socioAsignado: 'VEND-LUCAS',
@@ -1023,8 +1025,22 @@ Por favor confirmar comprobante de transferencia a:
             creadoEl: '2026-09-28',
             ultimoAcceso: new Date().toISOString().replace('T', ' ').slice(0, 16)
           });
-          this.save();
         }
+
+        // Asegurar consistencia de socios y permisos en storage existente
+        const lucasUsr = this.data.usuarios.find(u => u.id === 'USR-LUCAS' || u.email.toLowerCase() === 'lucas' || u.email.toLowerCase() === 'lucas@finanzaflow.com');
+        if (lucasUsr) {
+          lucasUsr.email = 'lucas';
+          lucasUsr.socioAsignado = 'VEND-LUCAS';
+          if (lucasUsr.puedeConsolidar === undefined) lucasUsr.puedeConsolidar = false;
+        }
+        const francoUsr = this.data.usuarios.find(u => u.id === 'USR-FRANCO' || u.email.toLowerCase() === 'franco' || u.email.toLowerCase() === 'franco@finanzaflow.com');
+        if (francoUsr) {
+          francoUsr.email = 'franco';
+          francoUsr.socioAsignado = 'VEND-FRANCO';
+          if (francoUsr.puedeConsolidar === undefined) francoUsr.puedeConsolidar = false;
+        }
+        this.save();
       }
     },
 
@@ -1050,7 +1066,13 @@ Por favor confirmar comprobante de transferencia a:
     getUsuarioByEmail(email) {
       this.initUsuariosWhitelist();
       if (!email) return null;
-      return (this.data.usuarios || []).find(u => u.email.toLowerCase() === email.toLowerCase().trim()) || null;
+      const clean = email.toLowerCase().trim();
+      const username = clean.includes('@') ? clean.split('@')[0] : clean;
+      return (this.data.usuarios || []).find(u => {
+        const uEmail = (u.email || '').toLowerCase().trim();
+        const uUser = uEmail.includes('@') ? uEmail.split('@')[0] : uEmail;
+        return uEmail === clean || u.id === clean || (username && uUser === username);
+      }) || null;
     },
 
     saveUsuario(userData) {
@@ -1227,9 +1249,12 @@ Por favor confirmar comprobante de transferencia a:
           const authStr = localStorage.getItem('finanzaflow_auth_user') || localStorage.getItem('finanzaflow_current_user');
           if (authStr) {
             const authObj = JSON.parse(authStr);
-            if (authObj && authObj.email) {
+            if (authObj && (authObj.email || authObj.id)) {
               this.initUsuariosWhitelist();
-              const u = this.getUsuarioByEmail(authObj.email);
+              let u = authObj.email ? this.getUsuarioByEmail(authObj.email) : null;
+              if (!u && authObj.id) {
+                u = this.getUsuario(authObj.id);
+              }
               if (u && u.estado === 'activo') {
                 // Siempre retornar el rol y datos fidedignos de la whitelist (previene elevación de privilegios en localStorage)
                 return {
