@@ -39,11 +39,13 @@
 
     toLocalCliente(row) {
       if (!row) return null;
+      const rawContacto = row.contacto_nombre || '';
+      const contactoLimpio = rawContacto.replace(/^responsable\s*[:\-–]?\s*/i, '').trim();
       return {
         id: row.id,
         razonSocial: row.razon_social,
         vendedorId: row.vendedor_id,
-        contactoNombre: row.contacto_nombre || '',
+        contactoNombre: contactoLimpio || row.razon_social || '',
         telefono: row.telefono || '',
         direccion: row.direccion || '',
         limiteCredito: Number(row.limite_credito || 0),
@@ -57,11 +59,13 @@
       };
     },
     toDbCliente(c) {
+      const rawContacto = c.contactoNombre || '';
+      const contactoLimpio = rawContacto.replace(/^responsable\s*[:\-–]?\s*/i, '').trim();
       return {
         id: c.id,
         razon_social: c.razonSocial,
         vendedor_id: c.vendedorId,
-        contacto_nombre: c.contactoNombre || '',
+        contacto_nombre: contactoLimpio || c.razonSocial || '',
         telefono: c.telefono || '',
         direccion: c.direccion || '',
         limite_credito: Number(c.limiteCredito || 0),

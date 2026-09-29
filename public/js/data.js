@@ -45,6 +45,17 @@
         this.initFromPreloaded();
         this.initUsuariosWhitelist();
       }
+      // Sanitizar prefijo 'Responsable' en clientes locales si existiera
+      if (this.data.clientes && this.data.clientes.length > 0) {
+        let changed = false;
+        this.data.clientes.forEach(c => {
+          if (c.contactoNombre && /^responsable\s*[:\-–]?\s*/i.test(c.contactoNombre)) {
+            c.contactoNombre = c.contactoNombre.replace(/^responsable\s*[:\-–]?\s*/i, '').trim() || c.razonSocial;
+            changed = true;
+          }
+        });
+        if (changed) this.save();
+      }
       this.syncFromSupabase();
     },
 
@@ -276,6 +287,9 @@
 
     saveCliente(cliente) {
       if (!this.data.clientes) this.data.clientes = [];
+      if (cliente.contactoNombre) {
+        cliente.contactoNombre = cliente.contactoNombre.replace(/^responsable\s*[:\-–]?\s*/i, '').trim() || cliente.razonSocial;
+      }
       if (!cliente.id) {
         cliente.id = `CLI-${Date.now().toString().slice(-6)}`;
         if (!cliente.fechaAlta) cliente.fechaAlta = new Date().toISOString().split('T')[0];
