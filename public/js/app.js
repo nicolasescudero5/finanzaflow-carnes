@@ -97,14 +97,21 @@
   }
 
   // Abrir y cerrar modal
+  // Abrir y cerrar modal con soporte para fallback inline
   function abrirModal(id) {
     const m = document.getElementById(id);
-    if (m) m.classList.add('active');
+    if (m) {
+      m.style.display = 'flex';
+      m.classList.add('active');
+    }
   }
 
   function cerrarModal(id) {
     const m = document.getElementById(id);
-    if (m) m.classList.remove('active');
+    if (m) {
+      m.classList.remove('active');
+      m.style.display = 'none';
+    }
   }
 
   // =============================================================

@@ -10,8 +10,168 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
-  <!-- Estilos propios completos y responsivos (Lodgify Theme) -->
-  <link rel="stylesheet" href="css/styles.css?v=3.5">
+  <!-- Estilos propios completos y responsivos (Lodgify Theme) con Fallback Crítico Anti-FOUC -->
+  <link rel="stylesheet" href="/css/styles.css?v=5.0">
+  <link rel="stylesheet" href="css/styles.css?v=5.0">
+
+  <!-- Blindaje Crítico en Línea: Evita fuga de modales y estiliza pantalla de login instantáneamente -->
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #0f172a;
+      color: #0f172a;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+      min-height: 100vh;
+    }
+    /* SEGURIDAD VISUAL: Modales SIEMPRE ocultos si no tienen clase active */
+    .modal-overlay:not(.active) {
+      display: none !important;
+    }
+    .modal-overlay.active {
+      display: flex !important;
+    }
+    /* Estilos críticos e inmediatos para Login Gateway */
+    .login-gate-wrapper {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      min-height: 100vh;
+      background: radial-gradient(circle at 15% 15%, #1e293b 0%, #0f172a 50%, #020617 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999999;
+      padding: 16px;
+      overflow-y: auto;
+      box-sizing: border-box;
+    }
+    .login-gate-card {
+      background: #ffffff;
+      width: 100%;
+      max-width: 420px;
+      border-radius: 20px;
+      box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.1);
+      padding: 32px 24px;
+      box-sizing: border-box;
+      margin: auto;
+    }
+    .login-gate-brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .login-gate-logo {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      background: #0f172a;
+      color: #daf560;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.35);
+      flex-shrink: 0;
+    }
+    .login-gate-title {
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: #0f172a;
+      line-height: 1.2;
+      margin: 0;
+      letter-spacing: -0.02em;
+    }
+    .login-gate-subtitle {
+      font-size: 0.78rem;
+      color: #64748b;
+      font-weight: 500;
+      margin: 3px 0 0 0;
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #334155;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 6px;
+    }
+    .input-with-icon {
+      position: relative;
+      display: flex;
+      align-items: center;
+      width: 100%;
+    }
+    .input-with-icon svg {
+      position: absolute;
+      left: 14px;
+      color: #94a3b8;
+      pointer-events: none;
+      flex-shrink: 0;
+    }
+    .form-control {
+      width: 100%;
+      height: 46px;
+      padding: 10px 14px 10px 42px;
+      font-family: inherit;
+      font-size: 0.92rem;
+      color: #0f172a;
+      background-color: #f8fafc;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 12px;
+      box-sizing: border-box;
+      transition: all 0.2s ease;
+      outline: none;
+    }
+    .form-control:focus {
+      border-color: #10b981;
+      background-color: #ffffff;
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+    }
+    .btn-text-link {
+      background: none;
+      border: none;
+      font-size: 0.76rem;
+      font-weight: 600;
+      color: #0284c7;
+      cursor: pointer;
+      padding: 0;
+    }
+    .btn-primary {
+      background-color: #daf560;
+      color: #0f172a;
+      border: 1px solid #caea3e;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.15s ease;
+    }
+    .btn-primary:active {
+      transform: scale(0.98);
+    }
+    @media (max-width: 480px) {
+      .login-gate-wrapper {
+        padding: 12px;
+      }
+      .login-gate-card {
+        padding: 24px 18px;
+        border-radius: 16px;
+      }
+    }
+  </style>
   
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%230f172a%22 stroke-width=%222.2%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><circle cx=%2212.5%22 cy=%228.5%22 r=%222.5%22/><path d=%22M12.5 2a6.5 6.5 0 0 0-6.22 4.6c-1.1 3.13-.78 3.9-3.18 6.08A3 3 0 0 0 5 18c4 0 8.4-1.8 11.4-4.3A6.5 6.5 0 0 0 12.5 2Z%22/><path d=%22m18.5 6 2.19 4.5a6.48 6.48 0 0 1 .31 2 6.49 6.49 0 0 1-2.6 5.2C15.4 20.2 11 22 7 22a3 3 0 0 1-2.68-1.66L2.4 16.5%22/></svg>">
 </head>
@@ -252,7 +412,7 @@
        ========================================================================= -->
 
   <!-- Modal 1: Carga Simplificada de Venta Cárnica -->
-  <div id="modalVenta" class="modal-overlay">
+  <div id="modalVenta" class="modal-overlay" style="display: none;">
     <div class="modal-container modal-lg" style="max-width: 680px;">
       <div class="modal-header">
         <div class="modal-title">
@@ -275,7 +435,7 @@
   </div>
 
   <!-- Modal 2: Registrar Pago Simplificado con FIFO -->
-  <div id="modalCobranza" class="modal-overlay">
+  <div id="modalCobranza" class="modal-overlay" style="display: none;">
     <div class="modal-container modal-lg" style="max-width: 650px;">
       <div class="modal-header">
         <div class="modal-title">
@@ -298,7 +458,7 @@
   </div>
 
   <!-- Modal 3: Reclamo por WhatsApp con Plantillas -->
-  <div id="modalReclamoWhatsApp" class="modal-overlay">
+  <div id="modalReclamoWhatsApp" class="modal-overlay" style="display: none;">
     <div class="modal-container" style="max-width: 600px;">
       <div class="modal-header">
         <div class="modal-title" style="color: #15803d;">
@@ -317,7 +477,7 @@
   </div>
 
   <!-- Modal 4: Gestión y Creación de Socios / Vendedores -->
-  <div id="modalGestionSocios" class="modal-overlay">
+  <div id="modalGestionSocios" class="modal-overlay" style="display: none;">
     <div class="modal-container" style="max-width: 580px;">
       <div class="modal-header">
         <div class="modal-title">
@@ -336,7 +496,7 @@
   </div>
 
   <!-- Modal 5: Alta / Edición de Cliente con Asignación de Socio -->
-  <div id="modalCliente" class="modal-overlay">
+  <div id="modalCliente" class="modal-overlay" style="display: none;">
     <div class="modal-container modal-lg" style="max-width: 640px;">
       <div class="modal-header">
         <div class="modal-title" id="modalClienteTitle">
@@ -356,7 +516,7 @@
   </div>
 
   <!-- Modal 6: Detalle de Venta y Pagos Imputados -->
-  <div id="modalDetalleVenta" class="modal-overlay">
+  <div id="modalDetalleVenta" class="modal-overlay" style="display: none;">
     <div class="modal-container modal-lg" style="max-width: 680px;">
       <div class="modal-header">
         <div class="modal-title">Detalle de Venta Cárnica e Imputaciones</div>
@@ -373,7 +533,7 @@
   </div>
 
   <!-- Modal 7: Detalle de Cobranza / Recibo Oficial -->
-  <div id="modalDetalleCobranza" class="modal-overlay">
+  <div id="modalDetalleCobranza" class="modal-overlay" style="display: none;">
     <div class="modal-container modal-lg" style="max-width: 650px;">
       <div class="modal-header">
         <div class="modal-title">Detalle de Recibo de Cobranza</div>
@@ -390,7 +550,7 @@
   </div>
 
   <!-- Modal 8: Nuevo Plan de Pago & Refinanciación -->
-  <div id="modalNuevoPlan" class="modal-overlay">
+  <div id="modalNuevoPlan" class="modal-overlay" style="display: none;">
     <div class="modal-container modal-lg">
       <div class="modal-header">
         <div class="modal-title">Nuevo Plan de Refinanciación de Deuda</div>
@@ -407,7 +567,7 @@
   </div>
 
   <!-- Modal 9: Administrar Usuario de Whitelist (Control de Acceso) -->
-  <div id="modalUsuario" class="modal-overlay">
+  <div id="modalUsuario" class="modal-overlay" style="display: none;">
     <div class="modal-container" style="max-width: 520px;">
       <div class="modal-header">
         <div class="modal-title" id="modalUsuarioTitle">Usuario de Whitelist</div>
@@ -424,7 +584,7 @@
   </div>
 
   <!-- Modal 10: Inicio de Sesión y Control de Acceso -->
-  <div id="modalLogin" class="modal-overlay">
+  <div id="modalLogin" class="modal-overlay" style="display: none;">
     <div class="modal-container" style="max-width: 440px;">
       <div class="modal-header">
         <div class="modal-title">🔐 Sesión & Control de Acceso</div>
@@ -442,10 +602,10 @@
 
   <!-- Scripts del Sistema (Con dataset pre-cargado y persistencia en Supabase) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2" integrity="sha384-WgXwGL6fUsYJWNaKJgVbrJKGRQwc1vieh2oy4kw9nXqpNDz3tdSsqEYUgeHD/NuF" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script src="js/supabase_client.js?v=4.2"></script>
-  <script src="js/initial_data.js"></script>
-  <script src="js/data.js?v=4.2"></script>
-  <script src="js/app.js?v=4.2"></script>
+  <script src="/js/supabase_client.js?v=5.0"></script>
+  <script src="/js/initial_data.js?v=5.0"></script>
+  <script src="/js/data.js?v=5.0"></script>
+  <script src="/js/app.js?v=5.0"></script>
 
 </body>
 </html>
