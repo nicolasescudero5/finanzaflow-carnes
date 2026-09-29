@@ -57,7 +57,7 @@
           if (live.cobranzas && live.cobranzas.length > 0) this.data.cobranzas = live.cobranzas;
           if (live.usuarios && live.usuarios.length > 0) this.data.usuarios = live.usuarios;
           this.save();
-          if (typeof window !== 'undefined') {
+          if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function' && typeof CustomEvent !== 'undefined') {
             window.dispatchEvent(new CustomEvent('datastore:synced', { detail: live }));
           }
           return true;
@@ -94,7 +94,7 @@
         this.data.usuarios = this.data.usuarios.filter(u => u.id !== payload.old.id);
         this.save();
       }
-      if (typeof window !== 'undefined') {
+      if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function' && typeof CustomEvent !== 'undefined') {
         window.dispatchEvent(new CustomEvent('datastore:synced'));
       }
     },

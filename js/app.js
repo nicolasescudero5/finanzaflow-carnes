@@ -146,11 +146,16 @@
 
     if (btnSubmit) {
       btnSubmit.disabled = true;
-      btnSubmit.innerHTML = `<span>Verificando credenciales...</span>`;
+      btnSubmit.innerHTML = `<span>Verificando credenciales con Supabase...</span>`;
     }
 
-    setTimeout(() => {
-      const res = window.DataStore.autenticarUsuario(email, pass);
+    setTimeout(async () => {
+      let res;
+      if (window.DataStore && window.DataStore.autenticarUsuarioAsync) {
+        res = await window.DataStore.autenticarUsuarioAsync(email, pass);
+      } else {
+        res = window.DataStore.autenticarUsuario(email, pass);
+      }
 
       if (btnSubmit) {
         btnSubmit.disabled = false;
@@ -174,7 +179,12 @@
       verificarSesionYRenderizar();
       initAppDashboard();
       showToast(`¡Bienvenido/a ${res.usuario.nombre}! Acceso autorizado.`);
-    }, 200);
+
+      // Sincronizar en segundo plano el dataset completo de producción
+      if (window.DataStore && window.DataStore.syncFromSupabase) {
+        window.DataStore.syncFromSupabase();
+      }
+    }, 100);
   }
 
   function cerrarSesion() {
@@ -209,6 +219,18 @@
   // =============================================================
   function initApp() {
     window.DataStore.init();
+
+    // Event listener para cuando Supabase termine la sincronización de datos
+    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+      window.addEventListener('datastore:synced', () => {
+        console.log('🔄 [FinanzaFlow] Sincronización con Supabase finalizada, refrescando interfaz.');
+        actualizarBadgesNav();
+        actualizarSelectorVendedoresTopbar();
+        if (state.currentView) {
+          switchView(state.currentView);
+        }
+      });
+    }
 
     // Soporte para autologin de pruebas vía URL (?autologin=admin)
     try {

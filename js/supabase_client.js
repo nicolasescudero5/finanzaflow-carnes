@@ -182,15 +182,30 @@
     syncInProgress: false,
     lastSyncTime: null,
 
+    async restFetch(endpoint, options = {}) {
+      if (typeof fetch === 'undefined') return null;
+      const url = `${SUPABASE_CONFIG.url}/rest/v1/${endpoint}`;
+      const headers = {
+        'apikey': SUPABASE_CONFIG.anonKey,
+        'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`,
+        'Content-Type': 'application/json',
+        ...(options.headers || {})
+      };
+      return fetch(url, { ...options, headers });
+    },
+
     init() {
       try {
-        if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
+        if (typeof window !== 'undefined' && window.supabase && window.supabase.createClient) {
           client = window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
           this.isOnline = true;
-          console.log('✅ [Supabase] Cliente inicializado correctamente:', SUPABASE_CONFIG.url);
+          console.log('✅ [Supabase] Cliente inicializado con SDK:', SUPABASE_CONFIG.url);
           this.iniciarRealtime();
+        } else if (typeof fetch !== 'undefined') {
+          this.isOnline = true;
+          console.log('✅ [Supabase] Cliente inicializado vía REST API directa:', SUPABASE_CONFIG.url);
         } else {
-          console.warn('⚠️ [Supabase] Librería supabase-js no disponible.');
+          console.warn('⚠️ [Supabase] No se encontró SDK ni fetch disponible.');
         }
       } catch (err) {
         console.warn('⚠️ [Supabase] Error al inicializar cliente:', err);
@@ -198,7 +213,7 @@
     },
 
     getClient() {
-      if (!client && typeof window.supabase !== 'undefined') {
+      if (!client && typeof window !== 'undefined' && window.supabase) {
         this.init();
       }
       return client;
@@ -209,26 +224,46 @@
     // =============================================================
     async fetchAllRows(table, select = '*') {
       const sb = this.getClient();
-      if (!sb) throw new Error('Cliente Supabase no conectado');
-
       let allRows = [];
       let from = 0;
       const pageSize = 1000;
 
-      while (true) {
-        const { data, error } = await sb
-          .from(table)
-          .select(select)
-          .range(from, from + pageSize - 1);
+      if (sb) {
+        while (true) {
+          const { data, error } = await sb
+            .from(table)
+            .select(select)
+            .range(from, from + pageSize - 1);
 
-        if (error) throw error;
+          if (error) throw error;
+          if (!data || data.length === 0) break;
+
+          allRows = allRows.concat(data);
+          if (data.length < pageSize) break;
+          from += pageSize;
+        }
+        return allRows;
+      }
+
+      // Fallback nativo con PostgREST REST API
+      while (true) {
+        const res = await this.restFetch(`${table}?select=${encodeURIComponent(select)}`, {
+          headers: {
+            Range: `${from}-${from + pageSize - 1}`,
+            'Range-Unit': 'items'
+          }
+        });
+        if (!res || !res.ok) {
+          const msg = res ? await res.text() : 'No fetch response';
+          throw new Error(`REST Error ${table}: ${msg}`);
+        }
+        const data = await res.json();
         if (!data || data.length === 0) break;
 
         allRows = allRows.concat(data);
         if (data.length < pageSize) break;
         from += pageSize;
       }
-
       return allRows;
     },
 
@@ -237,7 +272,7 @@
     // =============================================================
     async descargarDatasetCompleto() {
       const sb = this.getClient();
-      if (!sb) {
+      if (!sb && typeof fetch === 'undefined') {
         console.warn('⚠️ [Supabase] Modo offline: No se pudo conectar a la base de datos.');
         return null;
       }
@@ -285,7 +320,7 @@
         return { ok: false, error: 'Por favor ingresa tu correo y contraseña.' };
       }
 
-      // Si Supabase está disponible, consultar directamente en la base
+      let userData = null;
       if (sb) {
         try {
           const { data, error } = await sb
@@ -294,42 +329,61 @@
             .ilike('email', cleanEmail)
             .maybeSingle();
 
-          if (error) {
-            console.warn('Error al consultar usuarios_whitelist en Supabase:', error);
-          } else if (data) {
-            const u = Mappers.toLocalUsuario(data);
-            if (u.estado === 'inactivo') {
-              return { ok: false, error: 'Este usuario ha sido dado de baja por el Administrador.' };
-            }
+          if (!error && data) userData = data;
+        } catch (err) {
+          console.warn('Error al consultar via SDK en Supabase:', err);
+        }
+      }
 
-            let passOk = false;
-            if (u.email === 'nicolasescudero5@gmail.com') {
-              passOk = (password === u.password || password === 'admin123' || password === 'admin');
-            } else {
-              passOk = (u.password === password);
-            }
-
-            if (!passOk) {
-              return { ok: false, error: 'Contraseña incorrecta. Verifica tus datos de acceso.' };
-            }
-
-            // Actualizar último acceso en la base de datos
-            const nowIso = new Date().toISOString();
-            sb.from('usuarios_whitelist').update({ ultimo_acceso: nowIso }).eq('id', u.id).then();
-            u.ultimoAcceso = nowIso.replace('T', ' ').slice(0, 16);
-
-            return { ok: true, usuario: u };
+      if (!userData && typeof fetch !== 'undefined') {
+        try {
+          const res = await this.restFetch(`usuarios_whitelist?email=ilike.${encodeURIComponent(cleanEmail)}&select=*`);
+          if (res && res.ok) {
+            const arr = await res.json();
+            if (arr && arr.length > 0) userData = arr[0];
           }
         } catch (err) {
-          console.warn('Fallo en autenticación online contra Supabase, reintentando localmente:', err);
+          console.warn('Error al consultar via REST en Supabase:', err);
         }
+      }
+
+      if (userData) {
+        const u = Mappers.toLocalUsuario(userData);
+        if (u.estado === 'inactivo') {
+          return { ok: false, error: 'Este usuario ha sido dado de baja por el Administrador.' };
+        }
+
+        let passOk = false;
+        if (u.email === 'nicolasescudero5@gmail.com') {
+          passOk = (password === u.password || password === 'admin123' || password === 'admin');
+        } else {
+          passOk = (u.password === password);
+        }
+
+        if (!passOk) {
+          return { ok: false, error: 'Contraseña incorrecta. Verifica tus datos de acceso.' };
+        }
+
+        // Actualizar último acceso en la base de datos
+        const nowIso = new Date().toISOString();
+        if (sb) {
+          sb.from('usuarios_whitelist').update({ ultimo_acceso: nowIso }).eq('id', u.id).then();
+        } else {
+          this.restFetch(`usuarios_whitelist?id=eq.${encodeURIComponent(u.id)}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ ultimo_acceso: nowIso })
+          }).then();
+        }
+        u.ultimoAcceso = nowIso.replace('T', ' ').slice(0, 16);
+
+        return { ok: true, usuario: u };
       }
 
       // Fallback a DataStore local si Supabase no responde
       if (window.DataStore && window.DataStore.autenticarUsuarioLocal) {
         return window.DataStore.autenticarUsuarioLocal(cleanEmail, password);
       }
-      return { ok: false, error: 'No se pudo conectar con el servidor de autenticación.' };
+      return { ok: false, error: 'El correo no se encuentra registrado en el sistema.' };
     },
 
     // =============================================================
@@ -339,11 +393,18 @@
     // --- VENTAS ---
     async guardarVenta(venta) {
       const sb = this.getClient();
-      if (!sb) return;
       try {
         const row = Mappers.toDbVenta(venta);
-        const { error } = await sb.from('ventas').upsert(row, { onConflict: 'id' });
-        if (error) console.error('Error al guardar venta en Supabase:', error);
+        if (sb) {
+          const { error } = await sb.from('ventas').upsert(row, { onConflict: 'id' });
+          if (error) console.error('Error al guardar venta en Supabase:', error);
+        } else if (typeof fetch !== 'undefined') {
+          await this.restFetch('ventas', {
+            method: 'POST',
+            headers: { Prefer: 'resolution=merge-duplicates' },
+            body: JSON.stringify(row)
+          });
+        }
       } catch (e) {
         console.error('Error en guardarVenta Supabase:', e);
       }
@@ -351,11 +412,19 @@
 
     async guardarVentasBatch(ventas) {
       const sb = this.getClient();
-      if (!sb || !ventas || ventas.length === 0) return;
+      if (!ventas || ventas.length === 0) return;
       try {
         const rows = ventas.map(Mappers.toDbVenta);
-        const { error } = await sb.from('ventas').upsert(rows, { onConflict: 'id' });
-        if (error) console.error('Error al guardar lote de ventas en Supabase:', error);
+        if (sb) {
+          const { error } = await sb.from('ventas').upsert(rows, { onConflict: 'id' });
+          if (error) console.error('Error al guardar lote de ventas en Supabase:', error);
+        } else if (typeof fetch !== 'undefined') {
+          await this.restFetch('ventas', {
+            method: 'POST',
+            headers: { Prefer: 'resolution=merge-duplicates' },
+            body: JSON.stringify(rows)
+          });
+        }
       } catch (e) {
         console.error('Error en guardarVentasBatch Supabase:', e);
       }
@@ -363,10 +432,13 @@
 
     async eliminarVenta(id) {
       const sb = this.getClient();
-      if (!sb) return;
       try {
-        const { error } = await sb.from('ventas').delete().eq('id', id);
-        if (error) console.error('Error al eliminar venta en Supabase:', error);
+        if (sb) {
+          const { error } = await sb.from('ventas').delete().eq('id', id);
+          if (error) console.error('Error al eliminar venta en Supabase:', error);
+        } else if (typeof fetch !== 'undefined') {
+          await this.restFetch(`ventas?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' });
+        }
       } catch (e) {
         console.error('Error en eliminarVenta Supabase:', e);
       }
@@ -375,11 +447,18 @@
     // --- COBRANZAS ---
     async guardarCobranza(cobranza, ventasActualizadas = []) {
       const sb = this.getClient();
-      if (!sb) return;
       try {
         const row = Mappers.toDbCobranza(cobranza);
-        const { error: errCob } = await sb.from('cobranzas').upsert(row, { onConflict: 'id' });
-        if (errCob) console.error('Error al guardar cobranza en Supabase:', errCob);
+        if (sb) {
+          const { error: errCob } = await sb.from('cobranzas').upsert(row, { onConflict: 'id' });
+          if (errCob) console.error('Error al guardar cobranza en Supabase:', errCob);
+        } else if (typeof fetch !== 'undefined') {
+          await this.restFetch('cobranzas', {
+            method: 'POST',
+            headers: { Prefer: 'resolution=merge-duplicates' },
+            body: JSON.stringify(row)
+          });
+        }
 
         if (ventasActualizadas && ventasActualizadas.length > 0) {
           await this.guardarVentasBatch(ventasActualizadas);
@@ -391,10 +470,13 @@
 
     async eliminarCobranza(id, ventasRestauradas = []) {
       const sb = this.getClient();
-      if (!sb) return;
       try {
-        const { error: errDel } = await sb.from('cobranzas').delete().eq('id', id);
-        if (errDel) console.error('Error al eliminar cobranza en Supabase:', errDel);
+        if (sb) {
+          const { error: errDel } = await sb.from('cobranzas').delete().eq('id', id);
+          if (errDel) console.error('Error al eliminar cobranza en Supabase:', errDel);
+        } else if (typeof fetch !== 'undefined') {
+          await this.restFetch(`cobranzas?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' });
+        }
 
         if (ventasRestauradas && ventasRestauradas.length > 0) {
           await this.guardarVentasBatch(ventasRestauradas);
@@ -407,11 +489,18 @@
     // --- CLIENTES ---
     async guardarCliente(cliente) {
       const sb = this.getClient();
-      if (!sb) return;
       try {
         const row = Mappers.toDbCliente(cliente);
-        const { error } = await sb.from('clientes').upsert(row, { onConflict: 'id' });
-        if (error) console.error('Error al guardar cliente en Supabase:', error);
+        if (sb) {
+          const { error } = await sb.from('clientes').upsert(row, { onConflict: 'id' });
+          if (error) console.error('Error al guardar cliente en Supabase:', error);
+        } else if (typeof fetch !== 'undefined') {
+          await this.restFetch('clientes', {
+            method: 'POST',
+            headers: { Prefer: 'resolution=merge-duplicates' },
+            body: JSON.stringify(row)
+          });
+        }
       } catch (e) {
         console.error('Error en guardarCliente Supabase:', e);
       }
@@ -419,10 +508,13 @@
 
     async eliminarCliente(id) {
       const sb = this.getClient();
-      if (!sb) return;
       try {
-        const { error } = await sb.from('clientes').delete().eq('id', id);
-        if (error) console.error('Error al eliminar cliente en Supabase:', error);
+        if (sb) {
+          const { error } = await sb.from('clientes').delete().eq('id', id);
+          if (error) console.error('Error al eliminar cliente en Supabase:', error);
+        } else if (typeof fetch !== 'undefined') {
+          await this.restFetch(`clientes?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' });
+        }
       } catch (e) {
         console.error('Error en eliminarCliente Supabase:', e);
       }
@@ -431,11 +523,18 @@
     // --- SOCIOS / VENDEDORES ---
     async guardarSocio(socio) {
       const sb = this.getClient();
-      if (!sb) return;
       try {
         const row = Mappers.toDbSocio(socio);
-        const { error } = await sb.from('socios').upsert(row, { onConflict: 'id' });
-        if (error) console.error('Error al guardar socio en Supabase:', error);
+        if (sb) {
+          const { error } = await sb.from('socios').upsert(row, { onConflict: 'id' });
+          if (error) console.error('Error al guardar socio en Supabase:', error);
+        } else if (typeof fetch !== 'undefined') {
+          await this.restFetch('socios', {
+            method: 'POST',
+            headers: { Prefer: 'resolution=merge-duplicates' },
+            body: JSON.stringify(row)
+          });
+        }
       } catch (e) {
         console.error('Error en guardarSocio Supabase:', e);
       }
@@ -443,10 +542,13 @@
 
     async eliminarSocio(id) {
       const sb = this.getClient();
-      if (!sb) return;
       try {
-        const { error } = await sb.from('socios').delete().eq('id', id);
-        if (error) console.error('Error al eliminar socio en Supabase:', error);
+        if (sb) {
+          const { error } = await sb.from('socios').delete().eq('id', id);
+          if (error) console.error('Error al eliminar socio en Supabase:', error);
+        } else if (typeof fetch !== 'undefined') {
+          await this.restFetch(`socios?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' });
+        }
       } catch (e) {
         console.error('Error en eliminarSocio Supabase:', e);
       }
@@ -455,12 +557,20 @@
     // --- USUARIOS DE WHITELIST ---
     async guardarUsuario(usuario) {
       const sb = this.getClient();
-      if (!sb) return;
       try {
         const row = Mappers.toDbUsuario(usuario);
-        const { error } = await sb.from('usuarios_whitelist').upsert(row, { onConflict: 'id' });
-        if (error) console.error('Error al guardar usuario en Supabase:', error);
-        else console.log('✅ Usuario impactado en Supabase con éxito:', row.email);
+        if (sb) {
+          const { error } = await sb.from('usuarios_whitelist').upsert(row, { onConflict: 'id' });
+          if (error) console.error('Error al guardar usuario en Supabase:', error);
+          else console.log('✅ Usuario impactado en Supabase con éxito:', row.email);
+        } else if (typeof fetch !== 'undefined') {
+          const res = await this.restFetch('usuarios_whitelist', {
+            method: 'POST',
+            headers: { Prefer: 'resolution=merge-duplicates' },
+            body: JSON.stringify(row)
+          });
+          if (res && res.ok) console.log('✅ Usuario impactado en Supabase vía REST:', row.email);
+        }
       } catch (e) {
         console.error('Error en guardarUsuario Supabase:', e);
       }
@@ -468,10 +578,16 @@
 
     async cambiarEstadoUsuario(id, estado) {
       const sb = this.getClient();
-      if (!sb) return;
       try {
-        const { error } = await sb.from('usuarios_whitelist').update({ estado }).eq('id', id);
-        if (error) console.error('Error al cambiar estado de usuario en Supabase:', error);
+        if (sb) {
+          const { error } = await sb.from('usuarios_whitelist').update({ estado }).eq('id', id);
+          if (error) console.error('Error al cambiar estado de usuario en Supabase:', error);
+        } else if (typeof fetch !== 'undefined') {
+          await this.restFetch(`usuarios_whitelist?id=eq.${encodeURIComponent(id)}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ estado })
+          });
+        }
       } catch (e) {
         console.error('Error en cambiarEstadoUsuario Supabase:', e);
       }
@@ -479,10 +595,16 @@
 
     async cambiarPasswordUsuario(id, newPassword) {
       const sb = this.getClient();
-      if (!sb) return;
       try {
-        const { error } = await sb.from('usuarios_whitelist').update({ password: newPassword }).eq('id', id);
-        if (error) console.error('Error al cambiar password de usuario en Supabase:', error);
+        if (sb) {
+          const { error } = await sb.from('usuarios_whitelist').update({ password: newPassword }).eq('id', id);
+          if (error) console.error('Error al cambiar password de usuario en Supabase:', error);
+        } else if (typeof fetch !== 'undefined') {
+          await this.restFetch(`usuarios_whitelist?id=eq.${encodeURIComponent(id)}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ password: newPassword })
+          });
+        }
       } catch (e) {
         console.error('Error en cambiarPasswordUsuario Supabase:', e);
       }
@@ -490,10 +612,13 @@
 
     async eliminarUsuario(id) {
       const sb = this.getClient();
-      if (!sb) return;
       try {
-        const { error } = await sb.from('usuarios_whitelist').delete().eq('id', id);
-        if (error) console.error('Error al eliminar usuario en Supabase:', error);
+        if (sb) {
+          const { error } = await sb.from('usuarios_whitelist').delete().eq('id', id);
+          if (error) console.error('Error al eliminar usuario en Supabase:', error);
+        } else if (typeof fetch !== 'undefined') {
+          await this.restFetch(`usuarios_whitelist?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' });
+        }
       } catch (e) {
         console.error('Error en eliminarUsuario Supabase:', e);
       }

@@ -43,8 +43,61 @@
       }
       this.initFromPreloaded();
       this.initUsuariosWhitelist();
+      this.syncFromSupabase();
     },
 
+    async syncFromSupabase() {
+      if (typeof window === 'undefined' || !window.SupabaseService) return false;
+      try {
+        const live = await window.SupabaseService.descargarDatasetCompleto();
+        if (live) {
+          if (live.vendedores && live.vendedores.length > 0) this.data.vendedores = live.vendedores;
+          if (live.clientes && live.clientes.length > 0) this.data.clientes = live.clientes;
+          if (live.ventas && live.ventas.length > 0) this.data.ventas = live.ventas;
+          if (live.cobranzas && live.cobranzas.length > 0) this.data.cobranzas = live.cobranzas;
+          if (live.usuarios && live.usuarios.length > 0) this.data.usuarios = live.usuarios;
+          this.save();
+          if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function' && typeof CustomEvent !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('datastore:synced', { detail: live }));
+          }
+          return true;
+        }
+      } catch (err) {
+        console.warn('⚠️ [DataStore] Falló la sincronización con Supabase:', err);
+      }
+      return false;
+    },
+
+    handleRealtimeUsuario(payload) {
+      if (!payload || !payload.eventType) return;
+      this.initUsuariosWhitelist();
+      const row = payload.new;
+      if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+        const idx = this.data.usuarios.findIndex(u => u.id === row.id || u.email.toLowerCase() === (row.email || '').toLowerCase());
+        const mapped = {
+          id: row.id,
+          email: (row.email || '').toLowerCase().trim(),
+          password: row.password,
+          nombre: row.nombre,
+          rol: row.rol || 'operador',
+          socioAsignado: row.socio_asignado || 'todos',
+          estado: row.estado || 'activo',
+          ultimoAcceso: row.ultimo_acceso ? row.ultimo_acceso.replace('T', ' ').slice(0, 16) : null
+        };
+        if (idx >= 0) {
+          this.data.usuarios[idx] = mapped;
+        } else {
+          this.data.usuarios.push(mapped);
+        }
+        this.save();
+      } else if (payload.eventType === 'DELETE' && payload.old) {
+        this.data.usuarios = this.data.usuarios.filter(u => u.id !== payload.old.id);
+        this.save();
+      }
+      if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function' && typeof CustomEvent !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('datastore:synced'));
+      }
+    },
 
     initFromPreloaded() {
       const preloaded = (typeof window !== 'undefined' ? window : global).INITIAL_DATASET;
@@ -111,6 +164,9 @@
         }
       }
       this.save();
+      if (typeof window !== 'undefined' && window.SupabaseService) {
+        window.SupabaseService.guardarSocio(vendedor);
+      }
       return vendedor;
     },
 
@@ -119,6 +175,9 @@
       if (idx >= 0) {
         this.data.vendedores[idx].activo = false;
         this.save();
+        if (typeof window !== 'undefined' && window.SupabaseService) {
+          window.SupabaseService.guardarSocio(this.data.vendedores[idx]);
+        }
         return true;
       }
       return false;
@@ -202,6 +261,9 @@
         }
       }
       this.save();
+      if (typeof window !== 'undefined' && window.SupabaseService) {
+        window.SupabaseService.guardarCliente(cliente);
+      }
       return cliente;
     },
 
@@ -211,6 +273,9 @@
         cli.estado = cli.estado === 'bloqueado' ? 'activo' : 'bloqueado';
         cli.motivoBloqueo = cli.estado === 'bloqueado' ? (motivo || 'Bloqueo preventivo') : '';
         this.save();
+        if (typeof window !== 'undefined' && window.SupabaseService) {
+          window.SupabaseService.guardarCliente(cli);
+        }
         return cli;
       }
       return null;
@@ -332,6 +397,9 @@
       this.reconciliarSaldoAFavorCliente(cli.id);
 
       this.save();
+      if (typeof window !== 'undefined' && window.SupabaseService) {
+        window.SupabaseService.guardarVenta(nuevaVenta);
+      }
       return nuevaVenta;
     },
 
@@ -502,6 +570,13 @@
 
       this.data.cobranzas.push(nuevoPago);
       this.save();
+
+      if (typeof window !== 'undefined' && window.SupabaseService) {
+        const ventasMod = (this.data.ventas || []).filter(v => 
+          nuevoPago.imputaciones && nuevoPago.imputaciones.some(imp => imp.ventaId === v.id)
+        );
+        window.SupabaseService.guardarCobranza(nuevoPago, ventasMod);
+      }
 
       return {
         cobranza: nuevoPago,
@@ -961,6 +1036,9 @@ Por favor confirmar comprobante de transferencia a:
             estado: userData.estado || this.data.usuarios[idx].estado
           };
           this.save();
+          if (typeof window !== 'undefined' && window.SupabaseService) {
+            window.SupabaseService.guardarUsuario(this.data.usuarios[idx]);
+          }
           return this.data.usuarios[idx];
         }
       }
@@ -983,6 +1061,9 @@ Por favor confirmar comprobante de transferencia a:
 
       this.data.usuarios.push(nuevoUsuario);
       this.save();
+      if (typeof window !== 'undefined' && window.SupabaseService) {
+        window.SupabaseService.guardarUsuario(nuevoUsuario);
+      }
       return nuevoUsuario;
     },
 
@@ -999,6 +1080,9 @@ Por favor confirmar comprobante de transferencia a:
       }
       u.estado = u.estado === 'activo' ? 'inactivo' : 'activo';
       this.save();
+      if (typeof window !== 'undefined' && window.SupabaseService) {
+        window.SupabaseService.cambiarEstadoUsuario(id, u.estado);
+      }
       return u;
     },
 
@@ -1015,7 +1099,31 @@ Por favor confirmar comprobante de transferencia a:
       }
       this.data.usuarios = this.data.usuarios.filter(item => item.id !== id);
       this.save();
+      if (typeof window !== 'undefined' && window.SupabaseService) {
+        window.SupabaseService.eliminarUsuario(id);
+      }
       return true;
+    },
+
+    async autenticarUsuarioAsync(email, password) {
+      if (typeof window !== 'undefined' && window.SupabaseService && window.SupabaseService.autenticarOnline) {
+        const res = await window.SupabaseService.autenticarOnline(email, password);
+        if (res.ok && res.usuario) {
+          this.initUsuariosWhitelist();
+          const idx = this.data.usuarios.findIndex(u => u.id === res.usuario.id || u.email.toLowerCase() === res.usuario.email.toLowerCase());
+          if (idx >= 0) {
+            this.data.usuarios[idx] = res.usuario;
+          } else {
+            this.data.usuarios.push(res.usuario);
+          }
+          this.save();
+          this.setUsuarioActual(res.usuario);
+          return res;
+        } else if (res.error) {
+          return res;
+        }
+      }
+      return this.autenticarUsuario(email, password);
     },
 
     autenticarUsuario(email, password) {
@@ -1047,18 +1155,9 @@ Por favor confirmar comprobante de transferencia a:
       this.save();
       this.setUsuarioActual(u);
 
-      try {
-        if (typeof localStorage !== 'undefined') {
-          localStorage.setItem('finanzaflow_auth_user', JSON.stringify({
-            id: u.id,
-            email: u.email,
-            nombre: u.nombre,
-            rol: u.rol,
-            socioAsignado: u.socioAsignado,
-            loginTime: Date.now()
-          }));
-        }
-      } catch (e) {}
+      if (typeof window !== 'undefined' && window.SupabaseService) {
+        window.SupabaseService.actualizarUltimoAcceso(u.id);
+      }
 
       return { ok: true, usuario: u };
     },
@@ -1071,9 +1170,12 @@ Por favor confirmar comprobante de transferencia a:
             const authObj = JSON.parse(authStr);
             if (authObj && authObj.email) {
               const u = this.getUsuarioByEmail(authObj.email);
-              if (u && u.estado !== 'inactivo') {
-                return u;
+              if (u) {
+                if (u.estado !== 'inactivo') return u;
+                return null;
               }
+              // Si aún no terminó de descargar Supabase, conservar la sesión activa
+              return authObj;
             }
           }
         }
